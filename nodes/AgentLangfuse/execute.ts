@@ -10,7 +10,7 @@ import { NodeOperationError, jsonParse, sleep } from 'n8n-workflow';
 import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { z } from 'zod';
 
-import { createLangfuseHandler, fetchPrompt, flushHandler } from './langfuse';
+import { createLangfuseHandler, fetchProjectName, fetchPrompt, flushHandler } from './langfuse';
 import type { LangfuseCredentials, LangfuseMetadata } from './types';
 
 const SYSTEM_MESSAGE = 'You are a helpful assistant';
@@ -553,11 +553,19 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
   // -----------------------------------------------------------------------
   const promptSource = this.getNodeParameter('promptSource', 0, 'manual') as string;
   let langfusePromptResult: Awaited<ReturnType<typeof fetchPrompt>> | undefined;
+  let langfuseProjectName: string | undefined;
 
   if (promptSource === 'langfuse') {
     const langfuseCreds = (await this.getCredentials('langfuseApi')) as unknown as LangfuseCredentials;
     const promptName = this.getNodeParameter('langfusePrompt', 0) as string;
-    langfusePromptResult = await fetchPrompt(langfuseCreds, promptName, this.getNode());
+
+    // Fetch prompt and project name in parallel
+    const [promptResult, projectName] = await Promise.all([
+      fetchPrompt(langfuseCreds, promptName, this.getNode()),
+      fetchProjectName(langfuseCreds),
+    ]);
+    langfusePromptResult = promptResult;
+    langfuseProjectName = projectName;
 
     // Optionally override model name and temperature from Langfuse config
     const modelSource = this.getNodeParameter('modelSource', 0, 'manual') as string;
@@ -653,8 +661,26 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
           | undefined;
       }
 
+      // Build metadata: auto-populated fields + user's custom metadata
+      // User's custom metadata can override auto fields if needed
+      const autoMetadata: Record<string, unknown> = {};
+      if (langfuseProjectName) {
+        autoMetadata.project = langfuseProjectName;
+      }
+      if (langfusePromptResult) {
+        autoMetadata.prompt = {
+          name: langfusePromptResult.promptName,
+          version: langfusePromptResult.promptVersion,
+        };
+      }
+
+      const mergedMetadata = {
+        ...autoMetadata,
+        ...(parsedCustomMetadata ?? {}),
+      };
+
       const langfuseMetadata: LangfuseMetadata = {
-        customMetadata: parsedCustomMetadata,
+        customMetadata: mergedMetadata,
         sessionId: rawMetadata.sessionId as string | undefined,
         userId: rawMetadata.userId as string | undefined,
         traceName,

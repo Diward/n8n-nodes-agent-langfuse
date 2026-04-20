@@ -81,12 +81,27 @@ export async function fetchPrompt(
       systemMessage: systemPrompt.content,
       modelName: data.config?.model,
       temperature: data.config?.temperature,
+      promptName: data.name,
+      promptVersion: data.version,
     };
   } catch (error) {
     if ((error as Error).message.includes('404') || (error as Error).message.includes('Not Found')) {
       throw new NodeOperationError(node, `Prompt '${promptName}' not found in Langfuse`);
     }
     throw new NodeOperationError(node, (error as Error).message);
+  }
+}
+
+export async function fetchProjectName(
+  credentials: LangfuseCredentials,
+): Promise<string | undefined> {
+  try {
+    const data = (await langfuseApiRequest(credentials, '/api/public/projects')) as {
+      data: Array<{ name: string }>;
+    };
+    return data.data?.[0]?.name;
+  } catch {
+    return undefined;
   }
 }
 

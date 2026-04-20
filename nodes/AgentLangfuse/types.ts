@@ -11,6 +11,8 @@ export interface LangfusePromptResult {
   systemMessage: string;
   modelName?: string;
   temperature?: number;
+  promptName: string;
+  promptVersion: number;
 }
 
 export interface LangfuseMetadata {
@@ -28,6 +30,7 @@ export interface LangfusePromptListItem {
 
 export interface LangfusePromptResponse {
   name: string;
+  version: number;
   type: string;
   prompt: Array<{ role: string; content: string }>;
   config: {

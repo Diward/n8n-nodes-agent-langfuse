@@ -1,1 +1,277 @@
 # n8n-nodes-agent-langfuse
+
+An n8n community node that brings **AI Agent execution** and **[Langfuse](https://langfuse.com) observability** together in a single node. Select prompts from Langfuse, override models dynamically, and get full tracing — all without extra nodes in your workflow.
+
+> **First n8n node to combine Agent V3 architecture with native Langfuse prompt management and tracing.**
+
+## Why this node?
+
+If you use n8n's AI Agent with Langfuse, you currently need:
+- An **HTTP Request node** to fetch prompts from Langfuse API
+- A **Code node** to extract the prompt content and model config
+- The **AI Agent node** itself
+- Manual configuration to pass tracing callbacks
+
+**This node replaces all of that with one node.** Select your Langfuse prompt from a dropdown, and the node handles everything: prompt injection, model override, tracing, and metadata.
+
+### vs. other Langfuse nodes
+
+| Feature | This node | Official Langfuse nodes | Wistron DXLab |
+|---------|-----------|------------------------|---------------|
+| Agent execution | Yes | No (separate nodes) | Yes |
+| Prompt selector dropdown | Yes | Yes (separate node) | No |
+| Model override from prompt config | Yes | N/A | No |
+| Auto metadata (project, prompt, version) | Yes | No | No |
+| Agent V3 architecture | Yes | N/A | No (V2) |
+| Streaming support | Yes | N/A | Limited |
+| Fallback model | Yes | N/A | Yes |
+| Batching | Yes | N/A | Yes |
+
+## Features
+
+- **Langfuse Prompt Selector** — Browse and select production prompts from Langfuse directly in the node UI. No HTTP Request nodes needed.
+- **Model Override** — Use the model and temperature defined in your Langfuse prompt config, or override manually. Switch models by changing Langfuse config — no workflow edits required.
+- **Automatic Tracing** — Every execution is traced to Langfuse with full LLM call details, tool usage, and intermediate steps.
+- **Auto Metadata** — Project name, prompt name, and prompt version are automatically included in every trace. Add your own custom metadata on top.
+- **Streaming** — Full streaming support for real-time responses.
+- **Fallback Model** — Configure a backup model that activates if the primary fails.
+- **Batch Processing** — Process multiple items with configurable batch size and delay.
+- **Output Parser** — Connect structured output parsers for typed responses.
+- **Memory** — Connect memory nodes for conversational agents.
+
+## Installation
+
+### Community Nodes (Recommended)
+
+1. Go to **Settings > Community Nodes**
+2. Click **Install**
+3. Enter `n8n-nodes-agent-langfuse`
+4. Click **Install**
+
+### Manual Installation
+
+```bash
+cd ~/.n8n/nodes
+npm install n8n-nodes-agent-langfuse
+# Restart n8n
+```
+
+### Docker
+
+```bash
+# From inside your n8n container
+cd /home/node/.n8n/nodes
+npm install n8n-nodes-agent-langfuse
+# Restart the container
+```
+
+## Setup
+
+### 1. Create Langfuse Credentials
+
+1. In n8n, go to **Credentials > New Credential**
+2. Search for **Langfuse API**
+3. Fill in:
+   - **Base URL**: Your Langfuse instance URL (e.g., `https://cloud.langfuse.com` or your self-hosted URL)
+   - **Public Key**: Your Langfuse project public key
+   - **Secret Key**: Your Langfuse project secret key
+4. Click **Test** to verify the connection
+
+> **Tip:** Find your keys in Langfuse under **Settings > Projects > [Your Project] > API Keys**
+
+### 2. Add the Node to Your Workflow
+
+1. Search for **"AI Agent + Langfuse"** in the node panel
+2. Drag it into your workflow
+3. Connect a **Chat Model** (OpenAI, OpenRouter, Anthropic, etc.) to the "Chat Model" input
+4. Optionally connect **Tools**, **Memory**, or **Output Parser**
+
+### 3. Configure the Node
+
+## Configuration
+
+### Prompt Source
+
+| Option | Description |
+|--------|-------------|
+| **Langfuse Prompt** | Select a production prompt from your Langfuse project. The dropdown shows all `chat`-type prompts. |
+| **Manual** | Write the system message directly in the node (standard behavior). |
+
+### Model Source (when using Langfuse Prompt)
+
+| Option | Description |
+|--------|-------------|
+| **From Langfuse** | Uses the `model` and `temperature` from your Langfuse prompt's config. The connected Chat Model provides the provider and API key — only the model name is overridden. |
+| **Manual Override** | Uses the model exactly as configured in the connected Chat Model node. |
+
+> **How model override works:** When you select "From Langfuse", the node creates a new LLM instance using the same provider and API key from your connected Chat Model, but with the model name from Langfuse. For example, if your Chat Model is configured with OpenRouter and `gpt-4.1-mini`, but your Langfuse prompt has `model: "openai/gpt-5-nano"`, the node will call OpenRouter with `gpt-5-nano`. Change models in Langfuse — no workflow changes needed.
+
+### Prompt Type (User Input)
+
+| Option | Description |
+|--------|-------------|
+| **Auto (From Previous Node)** | Reads the `chatInput` field from the previous node's output. Works automatically with Chat Trigger and other AI nodes. |
+| **Define Below** | Write a fixed prompt text in the node. |
+
+### Langfuse Metadata
+
+| Field | Description |
+|-------|-------------|
+| **Session ID** | Groups related traces in Langfuse. Supports n8n expressions (e.g., `{{ $json.sessionId }}`). |
+| **User ID** | Identifies the end user. Supports expressions. |
+| **Trace Name** | Custom name for the trace. Defaults to the node name if empty. |
+| **Custom Metadata (JSON)** | Any additional metadata you want to attach to traces. |
+
+#### Automatic Metadata
+
+The following fields are **automatically included** in every trace — no configuration needed:
+
+| Field | Value | Source |
+|-------|-------|--------|
+| `project` | Your Langfuse project name | Langfuse API |
+| `prompt.name` | The selected prompt name | Langfuse prompt |
+| `prompt.version` | The production version number | Langfuse prompt |
+
+Your custom metadata is merged on top of the automatic fields. You can override any automatic field by including it in your Custom Metadata JSON.
+
+**Example Custom Metadata:**
+```json
+{
+  "env": "prod",
+  "workflow": "{{ $workflow.name }}",
+  "n8n_exec_id": "{{ $execution.id }}"
+}
+```
+
+**Resulting trace metadata:**
+```json
+{
+  "project": "my-project",
+  "prompt": { "name": "my-agent", "version": 3 },
+  "env": "prod",
+  "workflow": "Customer Support Agent",
+  "n8n_exec_id": 1234
+}
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| System Message | "You are a helpful assistant" | System prompt (only when Prompt Source = Manual) |
+| Max Iterations | 10 | Maximum agent reasoning loops |
+| Return Intermediate Steps | false | Include tool calls and reasoning in output |
+| Enable Streaming | true | Stream responses in real-time |
+| Passthrough Binary Images | true | Forward images from input to the LLM |
+| Batch Size | 1 | Items to process in parallel |
+| Delay Between Batches | 0 ms | Wait time between batches |
+
+### Canvas Inputs
+
+| Input | Type | Required | Description |
+|-------|------|----------|-------------|
+| **Chat Model** | Language Model | Yes | Any LangChain-compatible model (OpenAI, OpenRouter, Anthropic, etc.). Provides the LLM provider and API key. |
+| **Tools** | Tool | No | Connect one or more tools for the agent to use. |
+| **Memory** | Memory | No | Conversation memory for multi-turn agents. |
+| **Output Parser** | Output Parser | No | Structured output format (enable "Require Specific Output Format" first). |
+| **Fallback Model** | Language Model | No | Backup model (enable "Enable Fallback Model" first). |
+
+## Examples
+
+### Basic: Agent with Langfuse Prompt
+
+```
+Manual Trigger → AI Agent + Langfuse → Output
+                      ↑
+                 Chat Model (OpenRouter)
+```
+
+1. Set **Prompt Source** = "Langfuse Prompt"
+2. Select your prompt from the dropdown
+3. Set **Model Source** = "From Langfuse"
+4. Set **Prompt Type** = "Define Below" and enter a test message
+
+### Sub-workflow: Reusable Agent
+
+```
+Sub-workflow Trigger → AI Agent + Langfuse → Return
+                            ↑        ↑
+                       Chat Model   Tool (HTTP)
+```
+
+Perfect for n8n pipelines where multiple workflows call the same agent. Each gets its own Langfuse trace with the correct prompt and model.
+
+### With Tools and Memory
+
+```
+Chat Trigger → AI Agent + Langfuse → Response
+                    ↑    ↑    ↑
+              Chat Model Tool Memory
+```
+
+Full conversational agent with tool access and conversation history, all traced to Langfuse.
+
+## Multiple Langfuse Projects
+
+Each Langfuse API key pair belongs to one project. To use prompts from different projects:
+
+1. Create a **separate Langfuse API credential** for each project
+2. Select the appropriate credential in each node
+3. The project name in trace metadata updates automatically
+
+## Compatibility
+
+| Component | Version |
+|-----------|---------|
+| **n8n** | >= 1.70.0 |
+| **Node.js** | >= 20.15 |
+| **Langfuse** | Any version with API v2 (>= 2.0) |
+
+Works with any LangChain-compatible Chat Model: OpenAI, OpenRouter, Anthropic, Azure OpenAI, Google Vertex AI, Ollama, and more.
+
+## Troubleshooting
+
+### "Cannot connect to Langfuse"
+- Verify your Base URL, Public Key, and Secret Key in the credential
+- Click "Test" in the credential editor to check connectivity
+- For self-hosted Langfuse: ensure n8n can reach the URL (check Docker networking, firewalls)
+
+### Prompt dropdown is empty
+- Check that your Langfuse project has `chat`-type prompts (not `text`-type)
+- Verify the credential has access to the correct project
+
+### Model from Langfuse not being used
+- The `model` field in your Langfuse prompt config must match your provider's model naming (e.g., `openai/gpt-5-nano` for OpenRouter, `gpt-4o` for OpenAI direct)
+- Check the Langfuse trace to confirm which model was actually called
+
+### "Failed to receive response" with Chat Trigger
+- This is usually a CORS issue with your n8n reverse proxy, not this node
+- Test with a Manual Trigger first to isolate the issue
+
+## Development
+
+```bash
+git clone https://github.com/Diward/n8n-nodes-agent-langfuse.git
+cd n8n-nodes-agent-langfuse
+npm install
+npm run build
+
+# Install locally in n8n for testing
+cd ~/.n8n/nodes
+npm install /path/to/n8n-nodes-agent-langfuse
+# Restart n8n
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue first to discuss what you'd like to change.
+
+## License
+
+[MIT](LICENSE) - (c) 2026 [diward](https://github.com/Diward)
+
+## Credits
+
+- Built on [LangChain](https://langchain.com) and [Langfuse](https://langfuse.com)
+- Icon: [Lucide](https://lucide.dev) bot icon + [Langfuse](https://lobehub.com/icons/langfuse) logo
+- Inspired by [n8n-nodes-ai-agent-langfuse](https://github.com/rorubyy/n8n-nodes-ai-agent-langfuse) by Wistron DXLab

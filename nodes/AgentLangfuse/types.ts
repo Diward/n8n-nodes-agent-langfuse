@@ -1,4 +1,5 @@
 export interface LangfuseCredentials {
+  host?: string;
   url?: string;
   baseUrl?: string;
   publicKey: string;

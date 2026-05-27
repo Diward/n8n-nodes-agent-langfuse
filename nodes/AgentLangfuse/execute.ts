@@ -786,6 +786,14 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
           sessionId: langfuseMetadata.sessionId,
           userId: langfuseMetadata.userId,
           ...langfuseMetadata.customMetadata,
+          // Link the LLM generation(s) to the Langfuse prompt version so they
+          // appear under the prompt's "Generations" tab and feed its metrics.
+          // The langfuse-langchain CallbackHandler reads this special
+          // `langfusePrompt` metadata key, maps it by parentRunId to link the
+          // child generation, and strips the key from stored metadata.
+          ...(langfusePromptResult
+            ? { langfusePrompt: langfusePromptResult.promptClient }
+            : {}),
         },
       };
 

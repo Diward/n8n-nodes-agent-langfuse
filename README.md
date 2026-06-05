@@ -26,8 +26,10 @@ If you use n8n's AI Agent with Langfuse, you currently need:
 |---------|-----------|------------------------|---------------|
 | Agent execution | Yes | No (separate nodes) | Yes |
 | Prompt selector dropdown | Yes | Yes (separate node) | No |
+| Prompt variable substitution (auto-loaded fields) | Yes | No | No |
+| Generation linked to prompt version | Yes | No | No |
 | Model override from prompt config | Yes | N/A | No |
-| Auto metadata (project, prompt, version) | Yes | No | No |
+| Auto metadata (execution, workflow, node, project, prompt) | Yes | No | No |
 | Agent V3 architecture | Yes | N/A | No (V2) |
 | Streaming support | Yes | N/A | Limited |
 | Fallback model | Yes | N/A | Yes |

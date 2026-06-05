@@ -4,11 +4,12 @@ import type {
   INodeType,
   INodeTypeDescription,
   INodePropertyOptions,
+  ResourceMapperFields,
 } from 'n8n-workflow';
 import { NodeConnectionTypes } from 'n8n-workflow';
 
 import { toolsAgentExecute } from './execute';
-import { fetchPromptNames } from './langfuse';
+import { fetchPrompt, fetchPromptNames } from './langfuse';
 import type { LangfuseCredentials } from './types';
 
 export class AgentLangfuse implements INodeType {
@@ -102,6 +103,32 @@ export class AgentLangfuse implements INodeType {
           },
         },
       },
+      // Prompt Variables (auto-loaded from the selected Langfuse prompt's {{placeholders}})
+      {
+        displayName: 'Prompt Variables',
+        name: 'promptVariablesUi',
+        type: 'resourceMapper',
+        default: { mappingMode: 'defineBelow', value: null },
+        noDataExpression: true,
+        description:
+          'Values substituted into {{placeholders}} in the Langfuse prompt. Fields auto-load from the selected prompt; values support n8n expressions. If the prompt defines a user message, it replaces the Text/chatInput below.',
+        displayOptions: {
+          show: {
+            promptSource: ['langfuse'],
+          },
+        },
+        typeOptions: {
+          loadOptionsDependsOn: ['langfusePrompt'],
+          resourceMapper: {
+            resourceMapperMethod: 'getPromptVariables',
+            mode: 'add',
+            fieldWords: { singular: 'variable', plural: 'variables' },
+            addAllFields: true,
+            multiKeyMatch: false,
+            supportAutoMap: false,
+          },
+        },
+      },
       // Prompt Type (user input)
       {
         displayName: 'Prompt Type',
@@ -112,6 +139,8 @@ export class AgentLangfuse implements INodeType {
           { name: 'Define Below', value: 'define' },
         ],
         default: 'auto',
+        description:
+          'Ignored when the selected Langfuse prompt defines a user message — that user message becomes the human turn.',
       },
       {
         displayName: 'Text',
@@ -184,7 +213,7 @@ export class AgentLangfuse implements INodeType {
             type: 'string',
             default: '',
             description:
-              'Override the default trace name. If empty, uses the node name.',
+              'Override the default trace name. If empty, uses "<workflow name> - <node name>".',
           },
           {
             displayName: 'Custom Metadata (JSON)',
@@ -263,6 +292,34 @@ export class AgentLangfuse implements INodeType {
           'langfuseApi',
         )) as unknown as LangfuseCredentials;
         return fetchPromptNames(credentials, this.getNode());
+      },
+    },
+    resourceMapping: {
+      async getPromptVariables(
+        this: ILoadOptionsFunctions,
+      ): Promise<ResourceMapperFields> {
+        const promptName = this.getNodeParameter(
+          'langfusePrompt',
+          undefined,
+        ) as string;
+        if (!promptName) {
+          return { fields: [] };
+        }
+        const credentials = (await this.getCredentials(
+          'langfuseApi',
+        )) as unknown as LangfuseCredentials;
+        const result = await fetchPrompt(credentials, promptName, this.getNode());
+        return {
+          fields: result.requiredVariables.map((name) => ({
+            id: name,
+            displayName: name,
+            required: true,
+            display: true,
+            defaultMatch: false,
+            type: 'string',
+          })),
+          emptyFieldsNotice: 'This Langfuse prompt has no {{variables}}.',
+        };
       },
     },
   };

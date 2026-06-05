@@ -26,8 +26,10 @@ If you use n8n's AI Agent with Langfuse, you currently need:
 |---------|-----------|------------------------|---------------|
 | Agent execution | Yes | No (separate nodes) | Yes |
 | Prompt selector dropdown | Yes | Yes (separate node) | No |
+| Prompt variable substitution (auto-loaded fields) | Yes | No | No |
+| Generation linked to prompt version | Yes | No | No |
 | Model override from prompt config | Yes | N/A | No |
-| Auto metadata (project, prompt, version) | Yes | No | No |
+| Auto metadata (execution, workflow, node, project, prompt) | Yes | No | No |
 | Agent V3 architecture | Yes | N/A | No (V2) |
 | Streaming support | Yes | N/A | Limited |
 | Fallback model | Yes | N/A | Yes |
@@ -124,6 +126,56 @@ The dropdown fetches all production `chat`-type prompts from your Langfuse proje
 
 > **How model override works:** When you select "From Langfuse", the node creates a new LLM instance using the same provider and API key from your connected Chat Model, but with the model name from Langfuse. For example, if your Chat Model is configured with OpenRouter and `gpt-4.1-mini`, but your Langfuse prompt has `model: "openai/gpt-5-nano"`, the node will call OpenRouter with `gpt-5-nano`. Change models in Langfuse — no workflow changes needed.
 
+### Prompt Variables
+
+Langfuse chat prompts can contain `{{variable}}` placeholders in their `system` and `user` messages. The node reads the selected prompt and **auto-populates one input field per `{{variable}}`** — no need to type variable names by hand.
+
+- Select a Langfuse prompt, then open the **Prompt Variables** mapper. It lists every `{{var}}` referenced by that prompt's `system` and `user` messages.
+- Each value supports full n8n expression syntax (e.g. `{{ $json.customer }}`).
+- If you change the selected prompt, click the mapper's **refresh** icon to reload the field list for the new prompt.
+- If the prompt has no `{{variables}}`, the mapper shows a notice and there's nothing to fill in.
+
+**Missing variables throw a `NodeOperationError`** before any LLM call is made, listing exactly which names need values. Empty-string values count as missing — this runtime check is the real guard (the mapper marks fields required but won't hard-block execution).
+
+#### How the Langfuse user message interacts with Text / chatInput
+
+| Langfuse prompt contains... | Result |
+|---|---|
+| `system` only | Compiled system message is used. `Prompt Type` / `Text` (or `chatInput`) drives the human turn — existing behaviour. |
+| `system` + `user` | Compiled system message is used. **Compiled user message replaces the human turn**; `Prompt Type` / `Text` field is ignored. Map any free-form input via a variable instead (e.g. set the `question` field to `{{ $json.chatInput }}`). |
+
+**Example A — parameterised system prompt, free-form user input:**
+
+```
+Langfuse prompt:
+  system: "You help customers of {{company}}."
+
+Node config:
+  Prompt Variables:  company = Acme
+  Prompt Type: Auto
+
+Result:
+  system → "You help customers of Acme."
+  human  → chatInput from previous node (unchanged)
+```
+
+**Example B — fully parameterised prompt:**
+
+```
+Langfuse prompt:
+  system: "You are a support agent."
+  user:   "Ticket {{ticket_id}}: {{question}}"
+
+Node config:
+  Prompt Variables:
+    ticket_id = {{ $json.ticketId }}
+    question  = {{ $json.message  }}
+
+Result (chatInput ignored):
+  system → "You are a support agent."
+  human  → "Ticket 4821: Where is my order?"
+```
+
 ### Prompt Type (User Input)
 
 | Option | Description |
@@ -131,13 +183,15 @@ The dropdown fetches all production `chat`-type prompts from your Langfuse proje
 | **Auto (From Previous Node)** | Reads the `chatInput` field from the previous node's output. Works automatically with Chat Trigger and other AI nodes. |
 | **Define Below** | Write a fixed prompt text in the node. |
 
+> Ignored when the selected Langfuse prompt defines a `user`-role message — see **Prompt Variables** above.
+
 ### Langfuse Metadata
 
 | Field | Description |
 |-------|-------------|
 | **Session ID** | Groups related traces in Langfuse. Supports n8n expressions (e.g., `{{ $json.sessionId }}`). |
 | **User ID** | Identifies the end user. Supports expressions. |
-| **Trace Name** | Custom name for the trace. **Defaults to the n8n node name** — so naming your node "AI Agent - Selector" will make the trace appear as "AI Agent - Selector" in Langfuse. |
+| **Trace Name** | Custom name for the trace. **Defaults to `<workflow name> - <node name>`** — e.g. a node named "AI Agent - Selector" in the workflow "Customer Support" produces the trace name "Customer Support - AI Agent - Selector". |
 | **Custom Metadata (JSON)** | Any additional metadata you want to attach to traces. |
 
 #### Automatic Metadata
@@ -146,29 +200,35 @@ The following fields are **automatically included** in every trace — no config
 
 | Field | Value | Source |
 |-------|-------|--------|
+| `execution_id` | The n8n execution ID | n8n |
+| `workflow.id` | The n8n workflow ID | n8n |
+| `workflow.name` | The n8n workflow name | n8n |
+| `workflow.active` | Whether the workflow is active | n8n |
+| `node` | The node name | n8n |
 | `project` | Your Langfuse project name | Langfuse API |
 | `prompt.name` | The selected prompt name | Langfuse prompt |
 | `prompt.version` | The production version number | Langfuse prompt |
 
-Your custom metadata is merged on top of the automatic fields. You can override any automatic field by including it in your Custom Metadata JSON.
+> **Reserved keys:** `execution_id`, `workflow`, `node`, `project`, and `prompt` are reserved for the auto-populated values above. These fields are factual and always win — if your Custom Metadata JSON includes any of them, those keys are **dropped** and a warning listing the ignored keys is written to the n8n log.
 
 **Example Custom Metadata:**
 ```json
 {
   "env": "prod",
-  "workflow": "{{ $workflow.name }}",
-  "n8n_exec_id": "{{ $execution.id }}"
+  "tenant": "{{ $json.tenantId }}"
 }
 ```
 
 **Resulting trace metadata:**
 ```json
 {
+  "execution_id": "1234",
+  "workflow": { "id": "aB3dE5fG", "name": "Customer Support Agent", "active": true },
+  "node": "AI Agent - Selector",
   "project": "my-project",
   "prompt": { "name": "my-agent", "version": 3 },
   "env": "prod",
-  "workflow": "Customer Support Agent",
-  "n8n_exec_id": 1234
+  "tenant": "acme-corp"
 }
 ```
 

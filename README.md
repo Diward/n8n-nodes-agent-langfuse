@@ -189,7 +189,7 @@ Result (chatInput ignored):
 |-------|-------------|
 | **Session ID** | Groups related traces in Langfuse. Supports n8n expressions (e.g., `{{ $json.sessionId }}`). |
 | **User ID** | Identifies the end user. Supports expressions. |
-| **Trace Name** | Custom name for the trace. **Defaults to the n8n node name** — so naming your node "AI Agent - Selector" will make the trace appear as "AI Agent - Selector" in Langfuse. |
+| **Trace Name** | Custom name for the trace. **Defaults to `<workflow name> - <node name>`** — e.g. a node named "AI Agent - Selector" in the workflow "Customer Support" produces the trace name "Customer Support - AI Agent - Selector". |
 | **Custom Metadata (JSON)** | Any additional metadata you want to attach to traces. |
 
 #### Automatic Metadata
@@ -198,29 +198,35 @@ The following fields are **automatically included** in every trace — no config
 
 | Field | Value | Source |
 |-------|-------|--------|
+| `execution_id` | The n8n execution ID | n8n |
+| `workflow.id` | The n8n workflow ID | n8n |
+| `workflow.name` | The n8n workflow name | n8n |
+| `workflow.active` | Whether the workflow is active | n8n |
+| `node` | The node name | n8n |
 | `project` | Your Langfuse project name | Langfuse API |
 | `prompt.name` | The selected prompt name | Langfuse prompt |
 | `prompt.version` | The production version number | Langfuse prompt |
 
-Your custom metadata is merged on top of the automatic fields. You can override any automatic field by including it in your Custom Metadata JSON.
+> **Reserved keys:** `execution_id`, `workflow`, `node`, `project`, and `prompt` are reserved for the auto-populated values above. These fields are factual and always win — if your Custom Metadata JSON includes any of them, those keys are **dropped** and a warning listing the ignored keys is written to the n8n log.
 
 **Example Custom Metadata:**
 ```json
 {
   "env": "prod",
-  "workflow": "{{ $workflow.name }}",
-  "n8n_exec_id": "{{ $execution.id }}"
+  "tenant": "{{ $json.tenantId }}"
 }
 ```
 
 **Resulting trace metadata:**
 ```json
 {
+  "execution_id": "1234",
+  "workflow": { "id": "aB3dE5fG", "name": "Customer Support Agent", "active": true },
+  "node": "AI Agent - Selector",
   "project": "my-project",
   "prompt": { "name": "my-agent", "version": 3 },
   "env": "prod",
-  "workflow": "Customer Support Agent",
-  "n8n_exec_id": 1234
+  "tenant": "acme-corp"
 }
 ```
 

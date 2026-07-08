@@ -17,6 +17,7 @@ import {
   fetchPrompt,
   flushHandler,
 } from './langfuse';
+import { isGeminiModel, sanitizeToolsForGemini } from './geminiSchema';
 import type { LangfuseCredentials, LangfuseMetadata } from './types';
 
 const SYSTEM_MESSAGE = 'You are a helpful assistant';
@@ -674,6 +675,14 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
           continue;
         }
         wrappedTools.push(t);
+      }
+
+      // Gemini/Vertex rejects JSON-schema keywords that OpenAI/Anthropic
+      // tolerate (additionalProperties, string formats, anyOf/oneOf, ...).
+      // Sanitize tool schemas so Vertex accepts the functionDeclarations.
+      // No-op for non-Google models, so OpenAI/Anthropic behaviour is unchanged.
+      if (isGeminiModel(model)) {
+        sanitizeToolsForGemini(wrappedTools);
       }
 
       // -------------------------------------------------------------------

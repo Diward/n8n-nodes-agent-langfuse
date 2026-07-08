@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.2] - 2026-07-08
 
 ### Fixed
 
-- `resolveBaseUrl` now prefers the credential's own `url` field over `host`. The official `@langfuse/n8n-nodes-langfuse` package registers a credential type with the same name (`langfuseApi`) but a different schema (`host` instead of `url`, defaulting to `https://cloud.langfuse.com`). With both packages installed, the winning schema is load-order dependent per n8n process; when the official schema wins, n8n injects its `host` default into data stored by this node, and `host` previously beat the user's configured `url` — silently sending every prompt fetch and trace to Langfuse Cloud, which 401s for self-hosted keys. Precedence is now `url > host > baseUrl`, covered by unit tests (`npm test`). See the README troubleshooting entry for the 401 fingerprint.
+- **Streaming now emits token deltas.** With a Webhook node in `responseMode: streaming` (or a streaming Chat Trigger) and the node's **Enable Streaming** option on, the reply arrived in a single lump at the end instead of streaming token-by-token. `streamRunnable` was hardcoded `false`, so LangChain never emitted the `on_chat_model_stream` events the `streamEvents` path keys on to send per-token chunks. It is now gated on the actual streaming decision (`isStreaming()` + Enable Streaming), matching n8n's built-in AI Agent; the non-streaming `invoke()` path is unchanged. ([#2](https://github.com/Diward/n8n-nodes-agent-langfuse/pull/2), thanks [@brendangooden](https://github.com/brendangooden))
+- `resolveBaseUrl` now prefers the credential's own `url` field over `host`. The official `@langfuse/n8n-nodes-langfuse` package registers a credential type with the same name (`langfuseApi`) but a different schema (`host` instead of `url`, defaulting to `https://cloud.langfuse.com`). With both packages installed, the winning schema is load-order dependent per n8n process; when the official schema wins, n8n injects its `host` default into data stored by this node, and `host` previously beat the user's configured `url` — silently sending every prompt fetch and trace to Langfuse Cloud, which 401s for self-hosted keys. Precedence is now `url > host > baseUrl`, covered by unit tests (`npm test`). See the README troubleshooting entry for the 401 fingerprint. ([#4](https://github.com/Diward/n8n-nodes-agent-langfuse/pull/4), thanks [@brendangooden](https://github.com/brendangooden))
 
 ## [0.2.1] - 2026-06-05
 
@@ -48,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable session ID, user ID, custom metadata, and trace name.
 - Streaming, fallback model, batching, output parser, and memory support.
 
+[0.2.2]: https://github.com/Diward/n8n-nodes-agent-langfuse/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Diward/n8n-nodes-agent-langfuse/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Diward/n8n-nodes-agent-langfuse/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Diward/n8n-nodes-agent-langfuse/releases/tag/v0.1.0

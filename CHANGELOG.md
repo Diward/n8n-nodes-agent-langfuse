@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-07-09
+
+### Fixed
+
+- **Gemini tool schemas lost every `$ref`.** `$ref` and `$defs` were stripped without being resolved, so a referenced property was advertised to the model as an empty schema while it stayed in `required`: the model no longer knew the argument's shape yet was still obliged to fill it. Converters factor out reused types as a `$ref`, so this affected ordinary tools, not just exotic ones. Local pointers are now inlined before the unsupported keywords are removed, sibling keywords next to a `$ref` win over the referenced schema, and recursive or unresolvable references degrade to `{}` instead of looping.
+- **`allOf` was flattened to its first object subschema**, silently dropping the properties and required entries of the other branches. `allOf` means "satisfy all", so it is now merged. `anyOf` and `oneOf` are genuine alternatives, so they still collapse to the first branch.
+- **`npm test` did not run on Node 20**, the floor this package declares in `engines`. The script passed a `**` glob to `node --test`, which only expands it from Node 22 on; on Node 20 the runner reported `Could not find` and executed nothing. It now passes `test/*.test.js`, which both versions accept.
+
+### Added
+
+- Continuous integration on pull requests and pushes to `main`: build, unit tests and `npm pack --dry-run` on Node 20 and 22. Releases are published to npm from a `v*` tag using npm trusted publishing (OIDC), so no long lived npm token is stored anywhere. Both workflows are adapted from [@brendangooden](https://github.com/brendangooden)'s fork.
+- `zod` is now an explicit devDependency. The Gemini tests import it and were relying on it being hoisted from a transitive install.
+
+### Changed
+
+- Documentation. The README still called the credential "Langfuse API" and told self-hosted users to uninstall one of two colliding packages. Since 0.3.0 the credential type is `agentLangfuseApi`, which no other package registers, so that collision no longer applies. Adds an Upgrading section for users coming from 0.2.x, since the rename is breaking and n8n community nodes have no automatic credential migration.
+
 ## [0.3.1] - 2026-07-09
 
 ### Fixed

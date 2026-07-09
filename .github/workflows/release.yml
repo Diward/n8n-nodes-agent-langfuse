@@ -23,8 +23,11 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # Trusted publishing needs npm >= 11.5.1, and Node 22 still bundles npm 10.
+      # Pinned to the 11.x line: npm 12.0.0 ships the @sigstore/* packages but its
+      # libnpmpublish still does require('sigstore'), so publishing with provenance
+      # dies with MODULE_NOT_FOUND. Revisit once 12.x can publish.
       - name: Update npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       # See the note in ci.yml: isolated-vm cannot be built here and is not needed.
       - name: Install dependencies

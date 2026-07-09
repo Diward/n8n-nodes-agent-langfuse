@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-07-09
+
+### Fixed
+
+- **Tools always failed on recent n8n.** Attaching any tool made every run end with `Bad request - please check your parameters` / `Provider returned error`, with or without streaming. The node dropped `tool_call_id` from the tool result, and every OpenAI compatible provider rejects a `role: "tool"` message without it. n8n instantiates the chat model from its own LangChain copy, currently `@langchain/core` 1.x, while this package builds the conversation with core 0.3. Core 1.x guards message handling with a brand check (`Symbol.for("langchain.message")` plus a `type` property) that a core 0.3 message cannot pass, so `@langchain/openai` skipped the branch that copies `tool_call_id`. The messages this package builds are now branded so core 1.x recognises them. Both descriptors are non enumerable, so message serialisation is unchanged. This is a stopgap: sharing a LangChain major with n8n is the real fix and will land in 0.4.0. ([#7](https://github.com/Diward/n8n-nodes-agent-langfuse/issues/7))
+
 ## [0.3.2] - 2026-07-09
 
 ### Fixed

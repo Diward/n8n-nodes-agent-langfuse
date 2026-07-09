@@ -80,6 +80,8 @@ npm install n8n-nodes-agent-langfuse
 
 ![Credential setup](assets/credential-setup.png)
 
+> Screenshot pending update. It predates 0.3.0, so it shows the credential named "Langfuse API" and its first field labelled "Langfuse Host URL". They are now **Agent Langfuse API** and **Base URL**. The steps below are current.
+
 1. In n8n, go to **Credentials > New Credential**
 2. Search for **Agent Langfuse API**
 3. Fill in:
@@ -93,6 +95,8 @@ npm install n8n-nodes-agent-langfuse
 ### 2. Configure the Node
 
 ![Node configuration](assets/node-configuration.png)
+
+> Screenshot pending update. Its Custom Metadata example sets `workflow` and reads `{{ $execution.id }}` by hand. Both are now populated automatically, and `workflow` is a reserved key that gets dropped with a warning. Do not copy that JSON. See [Automatic Metadata](#automatic-metadata).
 
 1. Search for **"AI Agent + Langfuse"** in the node panel
 2. Drag it into your workflow
@@ -113,6 +117,8 @@ npm install n8n-nodes-agent-langfuse
 ### Langfuse Prompt Selector
 
 ![Prompt dropdown](assets/prompt-dropdown.png)
+
+> Screenshot pending update. The Custom Metadata panel visible behind the dropdown carries the same outdated example noted above.
 
 The dropdown fetches all production `chat`-type prompts from your Langfuse project. Select one, and the node automatically:
 - Injects the prompt content as the system message
@@ -237,6 +243,8 @@ The following fields are **automatically included** in every trace — no config
 ### Langfuse Trace Output
 
 ![Langfuse trace](assets/langfuse-trace.png)
+
+> Screenshot pending update. It predates the automatic workflow context, so its metadata has no `execution_id`, `workflow` object or `node`, and the trace is named after the node alone rather than `<workflow name> - <node name>`.
 
 Every execution produces a full trace in Langfuse showing:
 - The complete LLM call chain (agent, prompt template, model call, output parsing)

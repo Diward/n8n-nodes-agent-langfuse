@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-07-09
+
+### Fixed
+
+- **Gemini rejected JSON-Schema type unions.** A tool schema carrying a draft-07 union such as `{"type": ["string", "null"]}`, which is what most converters emit for a nullable or optional field, was passed through untouched and Vertex answered `400 INVALID_ARGUMENT` (`Unknown name "type"`). Gemini's `Schema.type` is a single enum value and nullability is expressed with a separate `nullable` flag. The sanitizer now collapses the union to its first non-null type and sets `nullable: true` when `null` was one of the members. Verified against the live Gemini API.
+
+### Changed
+
+- `zod-to-json-schema` is now resolved lazily, on first conversion of a Zod tool schema, instead of at module load. A broken or partially extracted copy of that package under `~/.n8n/nodes` no longer makes this module unloadable. Note that `@langchain/core` still requires the package eagerly, so this alone does not rescue a corrupt install (see [#6](https://github.com/Diward/n8n-nodes-agent-langfuse/issues/6)); it only removes this node's own contribution to that failure mode.
+- The `zod-to-json-schema` range was widened from `^3.25.2` to `^3.22.3` to match the range `@langchain/core` declares. When a compatible copy is already hoisted, npm now dedupes to a single shared copy instead of nesting a second one under this package.
+
 ## [0.3.0] - 2026-07-08
 
 ### Added

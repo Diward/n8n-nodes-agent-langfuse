@@ -1,6 +1,7 @@
 // Runs against the compiled output: `npm run build` first (npm test does both).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 
 const {
   isGeminiModel,
@@ -90,6 +91,26 @@ test('flattens anyOf to the first object subschema', () => {
   assert.deepEqual(Object.keys(out.properties), ['a']);
 });
 
+// Gemini's Schema.type is a single enum value. Draft-07 unions like
+// ["string","null"] are rejected with 400 INVALID_ARGUMENT (verified against
+// the live API), so they must collapse to a type + `nullable` flag.
+test('collapses a type union to a single type plus nullable', () => {
+  const out = sanitizeGeminiSchema({
+    type: 'object',
+    properties: {
+      a: { type: ['string', 'null'] },
+      b: { type: ['number'] },
+    },
+  });
+  assert.deepEqual(out.properties.a, { type: 'string', nullable: true });
+  assert.deepEqual(out.properties.b, { type: 'number' });
+});
+
+test('keeps an explicit nullable flag (openApi3 output shape)', () => {
+  const out = sanitizeGeminiSchema({ type: 'string', nullable: true });
+  assert.deepEqual(out, { type: 'string', nullable: true });
+});
+
 test('object schema without properties gets an empty properties map', () => {
   const out = sanitizeGeminiSchema({ type: 'object' });
   assert.deepEqual(out.properties, {});
@@ -149,6 +170,28 @@ test('sanitizeToolsForGemini leaves tools without a convertible schema untouched
   const tool = { name: 'noschema', schema: 42 };
   sanitizeToolsForGemini([tool]);
   assert.equal(tool.schema, 42);
+});
+
+// Regression test for issue #6. `zod-to-json-schema` is resolved lazily, so a
+// broken or partially extracted copy under ~/.n8n/nodes cannot stop the node
+// from loading. Importing the module must not pull that package into the cache.
+test('importing the module does not load zod-to-json-schema', () => {
+  const probe = [
+    "require('./dist/nodes/AgentLangfuse/geminiSchema.js');",
+    "const hit = Object.keys(require.cache).some((p) => p.includes('zod-to-json-schema'));",
+    "process.stdout.write(hit ? 'LOADED' : 'NOT_LOADED');",
+  ].join('\n');
+  const out = execFileSync(process.execPath, ['-e', probe], { cwd: process.cwd() }).toString();
+  assert.equal(out, 'NOT_LOADED');
+});
+
+test('sanitizeToolsForGemini converts a Zod schema without a type union', () => {
+  const { z } = require('zod');
+  const tool = { name: 'zodtool', schema: z.object({ nul: z.string().nullable() }) };
+  sanitizeToolsForGemini([tool]);
+  // openApi3 target yields {type:'string', nullable:true}, never ['string','null'].
+  assert.equal(tool.schema.properties.nul.type, 'string');
+  assert.equal(tool.schema.properties.nul.nullable, true);
 });
 
 // End-to-end structural guarantee: a realistic MCP-style tool schema (which

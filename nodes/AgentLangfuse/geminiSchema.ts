@@ -1,5 +1,3 @@
-import { zodToJsonSchema } from 'zod-to-json-schema';
-
 // JSON-Schema keywords Google Gemini / Vertex AI reject in
 // functionDeclaration parameter schemas. OpenAI/Anthropic tolerate them,
 // which is why tool-calling only fails on Google models.
@@ -17,6 +15,33 @@ const GEMINI_UNSUPPORTED_KEYS = [
 // `format` values Gemini accepts on strings; anything else (uri, uuid,
 // email, date, ...) must be dropped or Vertex returns 400 INVALID_ARGUMENT.
 const GEMINI_ALLOWED_STRING_FORMATS = new Set(['enum', 'date-time']);
+
+type ZodToJsonSchema = (schema: unknown, options?: unknown) => Record<string, unknown>;
+
+let cachedConverter: ZodToJsonSchema | null | undefined;
+
+/**
+ * Resolve `zod-to-json-schema` lazily, on first use.
+ *
+ * It is only needed to convert Zod tool schemas, and only for Google models.
+ * Requiring it at module load would make a broken or partially extracted copy
+ * of that package (a recurring failure mode in `~/.n8n/nodes`, see issue #6)
+ * take the whole node down at load time. Resolving it here means the worst case
+ * is that Zod-schema tools are advertised unsanitized, instead of the node
+ * failing to load at all.
+ */
+function getConverter(): ZodToJsonSchema | null {
+  if (cachedConverter === undefined) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      cachedConverter = (require('zod-to-json-schema') as { zodToJsonSchema: ZodToJsonSchema })
+        .zodToJsonSchema;
+    } catch {
+      cachedConverter = null;
+    }
+  }
+  return cachedConverter;
+}
 
 /** True when the connected chat model routes to Google Gemini / Vertex. */
 export function isGeminiModel(model: unknown): boolean {
@@ -48,6 +73,16 @@ export function sanitizeGeminiSchema(node: unknown): unknown {
   for (const [key, value] of Object.entries(src)) {
     if (GEMINI_UNSUPPORTED_KEYS.includes(key)) continue;
     if (['anyOf', 'oneOf', 'allOf'].includes(key)) continue; // handled above
+    if (key === 'type' && Array.isArray(value)) {
+      // Gemini's Schema.type is a single enum value, so draft-07 unions such as
+      // ["string","null"] are rejected with 400 INVALID_ARGUMENT. Collapse to the
+      // first non-null type and express nullability with the `nullable` flag,
+      // which Gemini does understand.
+      const types = (value as unknown[]).filter((t) => t !== 'null');
+      if ((value as unknown[]).includes('null')) out.nullable = true;
+      if (types.length) out.type = types[0];
+      continue;
+    }
     if (
       key === 'format' &&
       typeof value === 'string' &&
@@ -88,8 +123,12 @@ function toJsonSchema(schema: unknown): Record<string, unknown> | undefined {
   ) {
     return schema as Record<string, unknown>;
   }
+  const convert = getConverter();
+  if (!convert) return undefined;
   try {
-    return zodToJsonSchema(schema as never, { target: 'openApi3' }) as Record<string, unknown>;
+    // `openApi3` keeps nullability as `nullable: true` rather than a
+    // ["string","null"] type union, which Gemini rejects.
+    return convert(schema, { target: 'openApi3' });
   } catch {
     return undefined;
   }

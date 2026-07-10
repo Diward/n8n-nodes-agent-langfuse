@@ -4,19 +4,15 @@ import { HumanMessage } from '@langchain/core/messages';
 import { createToolCallingAgent, AgentExecutor, Toolkit } from '@langchain/classic/agents';
 import { DynamicStructuredTool } from '@langchain/classic/tools';
 import { ChatOpenAI } from '@langchain/openai';
+import { CallbackHandler } from '@langfuse/langchain';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const omit = require('lodash/omit') as <T extends object>(obj: T, ...keys: string[]) => Partial<T>;
 import { NodeOperationError, jsonParse, sleep } from 'n8n-workflow';
 import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { z } from 'zod';
 
-import {
-  compilePromptMessages,
-  createLangfuseHandler,
-  fetchProjectName,
-  fetchPrompt,
-  flushHandler,
-} from './langfuse';
+import { compilePromptMessages, fetchProjectName, fetchPrompt } from './langfuse';
+import { withTracing } from './tracing';
 import { isGeminiModel, sanitizeToolsForGemini } from './geminiSchema';
 import type { LangfuseCredentials, LangfuseMetadata } from './types';
 
@@ -758,7 +754,13 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
         traceName,
       };
 
-      const langfuseHandler = createLangfuseHandler(langfuseCreds, langfuseMetadata);
+      // Credentials no longer live on the handler: in the v5 SDK they belong to
+      // the span processor, which `withTracing` selects for this execution.
+      const langfuseHandler = new CallbackHandler({
+        sessionId: langfuseMetadata.sessionId,
+        userId: langfuseMetadata.userId,
+        traceMetadata: langfuseMetadata.customMetadata,
+      });
 
       // -------------------------------------------------------------------
       // Build system message (from Langfuse or from options)
@@ -825,14 +827,10 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
         callbacks: [langfuseHandler],
         runName: traceName,
         metadata: {
-          sessionId: langfuseMetadata.sessionId,
-          userId: langfuseMetadata.userId,
           ...langfuseMetadata.customMetadata,
-          // Link the LLM generation(s) to the Langfuse prompt version so they
-          // appear under the prompt's "Generations" tab and feed its metrics.
-          // The langfuse-langchain CallbackHandler reads this special
-          // `langfusePrompt` metadata key, maps it by parentRunId to link the
-          // child generation, and strips the key from stored metadata.
+          // Links the generations to the Langfuse prompt version so they appear
+          // under the prompt's Generations tab. The handler reads this reserved
+          // key, maps it by parentRunId, and strips it from stored metadata.
           ...(langfusePromptResult
             ? { langfusePrompt: langfusePromptResult.promptClient }
             : {}),
@@ -840,50 +838,46 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
       };
 
       // -------------------------------------------------------------------
-      // Execute: streaming or invoke
+      // Execute: streaming or invoke, inside the tracing scope
       // -------------------------------------------------------------------
       const isStreamingAvailable =
         'isStreaming' in this ? (this as IExecuteFunctions).isStreaming() : undefined;
 
-      if ('isStreaming' in this && enableStreaming && isStreamingAvailable) {
-        let chatHistory: unknown;
-        if (memory) {
-          const memoryVariables = await (
-            memory as { loadMemoryVariables: (input: object) => Promise<Record<string, unknown>> }
-          ).loadMemoryVariables({});
-          chatHistory = memoryVariables['chat_history'];
-        }
+      const onFlushError = (error: Error) => {
+        this.logger.warn(`Could not flush traces to Langfuse: ${error.message}`);
+      };
 
-        const eventStream = executor.streamEvents(
-          {
-            ...invokeParams,
-            chat_history: chatHistory ?? undefined,
-          },
-          {
-            version: 'v2',
-            ...executeOptions,
-          },
-        );
+      return await withTracing(
+        langfuseCreds,
+        async () => {
+          if ('isStreaming' in this && enableStreaming && isStreamingAvailable) {
+            let chatHistory: unknown;
+            if (memory) {
+              const memoryVariables = await (
+                memory as {
+                  loadMemoryVariables: (input: object) => Promise<Record<string, unknown>>;
+                }
+              ).loadMemoryVariables({});
+              chatHistory = memoryVariables['chat_history'];
+            }
 
-        const result = await processEventStream(
-          this,
-          eventStream,
-          itemIndex,
-          options.returnIntermediateSteps as boolean,
-        );
+            const eventStream = executor.streamEvents(
+              { ...invokeParams, chat_history: chatHistory ?? undefined },
+              { version: 'v2', ...executeOptions },
+            );
 
-        // Flush Langfuse handler after streaming completes
-        await flushHandler(langfuseHandler);
+            return await processEventStream(
+              this,
+              eventStream,
+              itemIndex,
+              options.returnIntermediateSteps as boolean,
+            );
+          }
 
-        return result;
-      } else {
-        const result = await executor.invoke(invokeParams, executeOptions);
-
-        // Flush Langfuse handler after invoke completes
-        await flushHandler(langfuseHandler);
-
-        return result;
-      }
+          return await executor.invoke(invokeParams, executeOptions);
+        },
+        onFlushError,
+      );
     });
 
     const batchResults = await Promise.allSettled(batchPromises);

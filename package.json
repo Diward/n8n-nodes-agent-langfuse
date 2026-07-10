@@ -67,8 +67,6 @@
     "@opentelemetry/core": "^2.0.1",
     "@opentelemetry/exporter-trace-otlp-http": ">=0.202.0 <1.0.0",
     "@opentelemetry/sdk-trace-base": "^2.0.1",
-    "langfuse": "^3.0.0",
-    "langfuse-langchain": "^3.0.0",
     "lodash": "^4.17.21",
     "zod-to-json-schema": "^3.22.3"
   },

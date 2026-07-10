@@ -1,4 +1,4 @@
-import type { ChatPromptClient } from 'langfuse';
+import type { ChatPromptClient } from '@langfuse/client';
 
 export interface LangfuseCredentials {
   host?: string;

@@ -1,8 +1,8 @@
 import { RunnableSequence } from '@langchain/core/runnables';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { HumanMessage } from '@langchain/core/messages';
-import { createToolCallingAgent, AgentExecutor, Toolkit } from 'langchain/agents';
-import { DynamicStructuredTool } from 'langchain/tools';
+import { createToolCallingAgent, AgentExecutor, Toolkit } from '@langchain/classic/agents';
+import { DynamicStructuredTool } from '@langchain/classic/tools';
 import { ChatOpenAI } from '@langchain/openai';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const omit = require('lodash/omit') as <T extends object>(obj: T, ...keys: string[]) => Partial<T>;
@@ -18,12 +18,6 @@ import {
   flushHandler,
 } from './langfuse';
 import { isGeminiModel, sanitizeToolsForGemini } from './geminiSchema';
-import { applyLangChainV1MessageCompat } from './langchainCompat';
-
-// n8n's chat models come from a newer LangChain than the one this package
-// bundles. Without this, core 1.x drops `tool_call_id` from tool results and
-// every tool call fails with 400. See issue #7.
-applyLangChainV1MessageCompat();
 import type { LangfuseCredentials, LangfuseMetadata } from './types';
 
 const SYSTEM_MESSAGE = 'You are a helpful assistant';

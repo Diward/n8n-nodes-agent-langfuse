@@ -321,9 +321,13 @@ Each Langfuse API key pair belongs to one project. To use prompts from different
 
 | Component | Version |
 |-----------|---------|
-| **n8n** | >= 1.70.0 |
+| **n8n** | >= 2.0.0 |
 | **Node.js** | >= 20.15 |
-| **Langfuse** | Any version with API v2 (>= 2.0) |
+| **Langfuse** | >= 3.0 |
+
+On n8n 1.x, use 0.3.3. Langfuse 3.0 is the floor because traces are sent through
+its OpenTelemetry endpoint, which earlier servers do not expose. Verified against
+a self hosted Langfuse 3.205.
 
 Works with any LangChain-compatible Chat Model: OpenAI, OpenRouter, Anthropic, Azure OpenAI, Google Vertex AI, Ollama, and more.
 

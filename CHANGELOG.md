@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-10
+
+### Added
+
+- **PDF and text attachments reach the model.** The node forwarded binary images and silently dropped everything else, so a workflow that attached a paper or a CSV to the prompt sent the model nothing at all. PDFs now ride on a new **Automatically Passthrough Binary PDFs** option, off by default and useful for models that read PDFs natively such as Gemini. Text files, JSON, XML, CSV and YAML are forwarded whenever either passthrough option is on, which is the rule n8n's own agent applies. Attachments over 50 MB are refused with a clear message rather than sent.
+
+### Fixed
+
+- **A reasoning model's answer came back as a raw array.** An extended reasoning model, Claude for instance, replies with an array of content blocks. The node joined them only when every block carried `text`, so a single `thinking` block made it return the array itself, and an answer made only of `thinking` returned the array too. The text blocks now win, the thinking blocks are the fallback when there is no text at all, and the scratchpad never joins the answer. A block must declare `type: "text"` to count as text, which is what n8n checks.
+- **An output parser rejected an answer the model had already wrapped.** When the model produced `{"output": "hi"}` on its own, the node wrapped it again and handed the parser `{"output":{"output":"hi"}}`, which no schema accepts. A single key `output` wrapper is now passed through untouched.
+- **`RoutingSpanProcessor.shutdown()` left the router usable.** It forwarded to its processors but kept them in the map, so a span raised by an execution still in flight reached an exporter that was closing, and `ensure()` would build a fresh processor nothing would ever shut down. A second, concurrent shutdown returned while the first was still draining. The node never calls this itself, since n8n gives a community node no shutdown hook, but the contract belongs to OpenTelemetry and a provider is free to invoke it.
+- **The node icon's head and shoulders did not meet.** The shoulder line sat half a unit above the head's baseline, leaving a visible ledge where the two strokes crossed, and the open ends of the antenna and the shoulders were rounded. They are square now, and the strokes are collinear.
+
 ## [0.4.0] - 2026-07-10
 
 ### Changed

@@ -1,10 +1,10 @@
 /*
- * fixEmptyContentMessage, getAgentStepsParser, handleAgentFinishOutput,
- * handleParsedStepOutput, extractBinaryMessages and getOutputParserSchema are
- * derived from ToolsAgent/common.ts in @n8n/n8n-nodes-langchain, (c) n8n GmbH,
- * Sustainable Use License. They were copied so this node's agent loop would
- * behave like the native one. Three of them have since drifted from upstream;
- * NOTICE says which, and how.
+ * fixEmptyContentMessage, getAgentStepsParser, getOutputParserSchema,
+ * handleAgentFinishOutput, handleParsedStepOutput, prepareMessages and
+ * preparePrompt are derived from ToolsAgent/common.ts in
+ * @n8n/n8n-nodes-langchain, (c) n8n GmbH, Sustainable Use License. They were
+ * copied so this node's agent loop would behave like the native one. NOTICE
+ * lists the differences that remain.
  */
 import { RunnableSequence } from '@langchain/core/runnables';
 import { ChatPromptTemplate } from '@langchain/core/prompts';

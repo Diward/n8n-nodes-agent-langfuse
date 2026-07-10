@@ -221,23 +221,36 @@ function fixEmptyContentMessage(steps: any): any {
   return steps;
 }
 
+/* Exported for tests. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handleAgentFinishOutput(steps: any): any {
+export function handleAgentFinishOutput(steps: any): any {
   const agentFinishSteps = steps;
   if (agentFinishSteps.returnValues) {
     const isMultiOutput = Array.isArray(agentFinishSteps.returnValues?.output);
     if (isMultiOutput) {
       const multiOutputSteps = agentFinishSteps.returnValues.output as Array<{
+        type?: string;
         text?: string;
+        thinking?: string;
       }>;
-      const isTextOnly = multiOutputSteps.every(
-        (output: { text?: string }) => 'text' in output,
-      );
-      if (isTextOnly) {
-        agentFinishSteps.returnValues.output = multiOutputSteps
-          .map((output: { text?: string }) => output.text)
+      const textOutputs = multiOutputSteps
+        .filter((output) => output.type === 'text' && output.text)
+        .map((output) => output.text)
+        .join('\n')
+        .trim();
+
+      if (textOutputs) {
+        agentFinishSteps.returnValues.output = textOutputs;
+      } else {
+        // An extended reasoning model can answer with `thinking` blocks and no
+        // text. Returning them beats returning nothing, but they never join the
+        // text: the scratchpad is not part of the answer.
+        const thinkingOutputs = multiOutputSteps
+          .filter((output) => output.type === 'thinking' && output.thinking)
+          .map((output) => output.thinking)
           .join('\n')
           .trim();
+        agentFinishSteps.returnValues.output = thinkingOutputs || '';
       }
       return agentFinishSteps;
     }
@@ -253,7 +266,8 @@ function handleParsedStepOutput(output: any, memory: unknown): any {
   };
 }
 
-function getAgentStepsParser(
+/* Exported for tests. */
+export function getAgentStepsParser(
   outputParser: unknown,
   memory: unknown,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,7 +296,20 @@ function getAgentStepsParser(
       if (finalResponse instanceof Object) {
         if ('output' in finalResponse) {
           try {
-            parserInput = JSON.stringify({ output: jsonParse(finalResponse.output as string) });
+            const parsedOutput = jsonParse(finalResponse.output as string);
+            if (
+              parsedOutput !== null &&
+              typeof parsedOutput === 'object' &&
+              'output' in parsedOutput &&
+              Object.keys(parsedOutput).length === 1
+            ) {
+              // The model already produced the wrapper the parser expects.
+              // Wrapping it again yields {"output":{"output":...}}, which the
+              // schema rejects.
+              parserInput = JSON.stringify(parsedOutput);
+            } else {
+              parserInput = JSON.stringify({ output: parsedOutput });
+            }
           } catch {
             parserInput = finalResponse.output as string;
           }

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-10
+
+### Changed
+
+- **This release requires n8n 2.0.0 or later, and a Langfuse server on 3.0 or later.** It builds its messages with `@langchain/core` 1.x, the major n8n ships from 2.0, and it sends traces through Langfuse's OpenTelemetry endpoint, which earlier servers do not expose. On n8n 1.x, stay on 0.3.3. The floor is declared rather than enforced at load time: nothing refuses to start, but nothing about that combination is tested either.
+- **Tracing moved to the Langfuse v5 SDK**, which is built on OpenTelemetry. `langfuse-langchain@3` peer-depends on `langchain <0.4`, the dependency this release leaves behind, so staying on it was not an option. Credentials now live on a span processor rather than on the callback handler, prompts are fetched through `@langfuse/client`, and flushing goes through the tracer provider. Traces keep their name, their shape and their metadata.
+- **The node icon is a robot bust**, matching the icon n8n now uses for its agent. It is drawn for this package rather than copied: n8n's packages are under the Sustainable Use License and this one is MIT. The Langfuse badge stays, so the node remains distinguishable from the native agent.
+
+### Fixed
+
+- **Tools work, by construction rather than by patch.** 0.3.3 branded `BaseMessage.prototype` so that n8n's `@langchain/core` 1.x would recognise the messages this package built with core 0.3, which is what kept `tool_call_id` on tool results. This release shares the major instead: `@langchain/core` 1.x, `@langchain/openai` 1.x and `@langchain/classic` 1.x, exactly what n8n 2.x resolves. `createToolCallingAgent` and `AgentExecutor` moved to `@langchain/classic`; they were never removed. The shim is gone. ([#7](https://github.com/Diward/n8n-nodes-agent-langfuse/issues/7))
+- **A second Langfuse credential no longer leaks traces into the wrong project.** OpenTelemetry hands every span to every registered span processor, and Langfuse's default filter accepts any Langfuse span regardless of project, so two credentials would have exported each trace to both. Spans are now routed to the processor of the credential that raised them, keyed by trace id and carried in an `AsyncLocalStorage`.
+- **Every execution produced two broken traces, neither of them named.** `@langfuse/langchain` 5.9.1 registers the agent action span under the chain's own run id, overwriting the chain span in its internal run map, and parents it at the root because `AgentExecutor` hands `handleAgentAction` the chain's parent run id. The chain span was never ended. Tool calls are already reported through `handleToolStart`, so the two agent callbacks are dropped and the trace is a single, correctly nested tree again.
+- **`sessionId` and `userId` arrived empty.** Langfuse reads them from the root span of a trace, and its own `propagateAttributes` writes them to the active OpenTelemetry span, which does not exist unless a global context manager is registered. n8n registers one only while its `otel` module is enabled. This package will not install process wide OpenTelemetry globals to work around that, so it writes the two attributes itself.
+
+### Added
+
+- `test/toolCallId.test.js`, which drives the agent against a local mock provider and asserts the tool result reaches it carrying its `tool_call_id`. Issue #7 survived three releases because nothing asserted the payload actually sent.
+- `test/tracing.test.js`, which asserts that a span raised under one credential never reaches another credential's processor.
+- `NOTICE`, attributing the six agent helpers derived from `@n8n/n8n-nodes-langchain`. Three of them have drifted from upstream: this node does not pass PDF or text attachments to the model, does not filter thinking content blocks out of a final answer, and re-wraps an output parser result already shaped as `{output: ...}`. Closing that gap is tracked separately.
+
 ## [0.3.3] - 2026-07-09
 
 ### Fixed

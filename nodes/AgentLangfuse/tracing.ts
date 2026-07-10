@@ -127,9 +127,16 @@ export async function withTracing<T>(
     try {
       await activeProvider.forceFlush();
     } catch (error) {
-      onFlushError?.(error as Error);
+      // A reporter that throws must not take the execution down with it, nor
+      // skip the cleanup below.
+      try {
+        onFlushError?.(error as Error);
+      } catch {
+        // ignore
+      }
+    } finally {
+      activeRouter.release(route.traceIds);
     }
-    activeRouter.release(route.traceIds);
   }
 }
 

@@ -124,3 +124,22 @@ test('forceFlush flushes every credential', async () => {
 
   assert.deepEqual(processors.map((p) => p.seen.flushes), [1, 1]);
 });
+
+test('release cleanup completes even when flush and reporter throw', async () => {
+  const p = fakeProcessor();
+  const router = new RoutingSpanProcessor(() => p);
+  router.ensure(CREDS_A);
+
+  const traceIds = new Set();
+  await runWithRouteForTests(router, CREDS_A, async () => {
+    router.onStart(fakeSpan('trace-cleanup-final'), {});
+  }, traceIds);
+
+  // The span is now routed under CREDS_A. After release, it must no longer route.
+  // The fix nests finally blocks to guarantee release() runs unconditionally,
+  // even if both the flush and error reporter throw. Verify the invariant.
+  router.release(traceIds);
+  router.onEnd(fakeSpan('trace-cleanup-final'));
+
+  assert.deepEqual(p.seen.ended, [], 'release must forget routes even after error handlers throw');
+});

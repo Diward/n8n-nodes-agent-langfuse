@@ -60,6 +60,7 @@ Two kinds of node exist in this space: an agent node (runs the tool-calling agen
 - **Fallback Model**: Configure a backup model that activates if the primary fails.
 - **Batch Processing**: Process multiple items with configurable batch size and delay.
 - **Output Parser**: Connect structured output parsers for typed responses.
+- **Parse Output as JSON**: Opt-in (default off). Parses the agent JSON text output into the item and cleans code fences / surrounding text. Complements the Output Parser: lightweight, no schema, does not touch the prompt. Hidden when an output parser is connected.
 - **Memory**: Connect memory nodes for conversational agents.
 
 ## Installation
@@ -264,8 +265,8 @@ Each output item also carries the trace's identity, so a downstream node can lin
 
 | Field | Value |
 |-------|-------|
-| `langfuseTraceId` | The trace id (matches the trace in Langfuse). |
-| `langfuseTraceUrl` | A direct link to the trace, e.g. `https://cloud.langfuse.com/project/<id>/traces/<traceId>`. Present when the project id can be read from the Langfuse API. |
+| `langfuseTrace.id` | The trace id (matches the trace in Langfuse). |
+| `langfuseTrace.url` | A direct link to the trace, e.g. `https://cloud.langfuse.com/project/<id>/traces/<traceId>`. Present when the project id can be read from the Langfuse API. |
 
 ### Options
 

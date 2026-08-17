@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.0
+
+- **Parse Output as JSON (new toggle).** Opt-in (default off). When on, the agent text output is parsed as JSON and its fields become the item, so a downstream Code/Set parse node is no longer needed. It first cleans common wrappers (code fences, surrounding text); if the result is not a JSON object it fails, respecting Continue On Fail. Hidden when an output parser is connected (that path already returns structured output).
+- **BREAKING: the Langfuse trace on the node output is now nested.** Every output item exposes `langfuseTrace: { id, url }` (url present when the project id can be read) instead of the flat `langfuseTraceId` / `langfuseTraceUrl` added in 0.5.0. With Parse Output as JSON on, `langfuseTrace` is a reserved key and is kept alongside the parsed fields.
+
 ## [0.5.0] - 2026-07-10
 
 ### Added

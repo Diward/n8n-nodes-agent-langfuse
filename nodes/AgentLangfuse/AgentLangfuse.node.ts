@@ -170,6 +170,16 @@ export class AgentLangfuse implements INodeType {
         default: '',
         displayOptions: { show: { hasOutputParser: [true] } },
       },
+      {
+        displayName: 'Parse Output as JSON',
+        name: 'parseJsonOutput',
+        type: 'boolean',
+        default: false,
+        noDataExpression: true,
+        description:
+          'Parse the agent text output as JSON and return its fields as the item. Cleans common wrappers (code fences, surrounding text) first. Fails if the result is not a JSON object.',
+        displayOptions: { hide: { hasOutputParser: [true] } },
+      },
       // Fallback Model toggle
       {
         displayName: 'Enable Fallback Model',

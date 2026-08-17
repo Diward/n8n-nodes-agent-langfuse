@@ -20,6 +20,7 @@ import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { z } from 'zod';
 
 import { extractBinaryMessages } from './binaryPassthrough';
+import { parseAgentJsonOutput } from './jsonOutput';
 import { compilePromptMessages, fetchProject, fetchPrompt, resolveBaseUrl } from './langfuse';
 import { withTracing, type TraceCapture } from './tracing';
 import { isGeminiModel, sanitizeToolsForGemini } from './geminiSchema';
@@ -970,6 +971,37 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
         const parsedOutput = jsonParse(response.output as string);
         response.output =
           (parsedOutput as Record<string, unknown>)?.output ?? parsedOutput;
+      }
+
+      const parseJson = this.getNodeParameter(
+        'parseJsonOutput',
+        itemIndex,
+        false,
+      ) as boolean;
+
+      if (parseJson) {
+        let parsedJson: Record<string, unknown>;
+        try {
+          parsedJson = parseAgentJsonOutput(response.output);
+        } catch (err) {
+          if (this.continueOnFail()) {
+            returnData.push({
+              json: { error: (err as Error).message },
+              pairedItem: { item: itemIndex },
+            });
+            return;
+          }
+          throw new NodeOperationError(this.getNode(), err as Error);
+        }
+        // langfuseTrace is a reserved node key: it wins over any same-named field.
+        if (response.langfuseTrace !== undefined) {
+          parsedJson.langfuseTrace = response.langfuseTrace;
+        }
+        returnData.push({
+          json: parsedJson as INodeExecutionData['json'],
+          pairedItem: { item: itemIndex },
+        });
+        return;
       }
 
       const itemResult: INodeExecutionData = {

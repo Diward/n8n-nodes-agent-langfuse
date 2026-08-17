@@ -126,10 +126,12 @@ npm install n8n-nodes-agent-langfuse
 
 > Screenshot pending update. The Custom Metadata panel visible behind the dropdown carries the same outdated example noted above.
 
-The dropdown fetches all production `chat`-type prompts from your Langfuse project. Select one, and the node automatically:
+The dropdown fetches all production `chat`-type prompts from your Langfuse project (every page of the list). Select one, and the node automatically:
 - Injects the prompt content as the system message
 - Reads the model and temperature from the prompt config (if Model Source = "From Langfuse")
 - Includes the prompt name and version in the trace metadata
+
+The node uses the prompt's first system message and, when present, its first user message (which then becomes the human turn). Additional turns, such as few-shot examples, are not sent to the model; the node logs a warning naming how many were ignored.
 
 ### Model Source (when using Langfuse Prompt)
 

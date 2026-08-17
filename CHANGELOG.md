@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - Unreleased
+
+### Fixed
+
+- **Two or more MCP Client Tools no longer fail with "multiple tools with the same name: 'undefined'"** ([#9](https://github.com/Diward/n8n-nodes-agent-langfuse/issues/9)). Nested toolkits, both `Toolkit` instances and cross-package `{tools: []}` wrappers, which is the shape the MCP Client Tool provides, are flattened before the name-uniqueness check instead of after it.
+- **The Langfuse prompt dropdown lists every page.** The prompt list endpoint is paginated and the dropdown stopped at page 1, silently truncating projects with more prompts than one page holds.
+- **A hung Langfuse server can no longer block an execution forever.** The raw API requests (prompt list, project lookup) abort after 15 seconds.
+- **Text attachments are size-gated like images and PDFs.** A text file of any size used to be inlined into the prompt whole; the shared 50 MB limit now covers every passthrough kind.
+- **Continue On Fail is honored when the memory plus output parser combination yields non-JSON output.** The unwrap used to throw outside the per-item handling and take the whole node down.
+- **Chat prompts with extra turns warn instead of losing them silently.** The node uses the first system and the first user message; few-shot or assistant turns beyond those now log a warning naming the prompt and the number of ignored turns.
+
+### Changed
+
+- Internal cleanup: the executor-level `langfuseHandler` parameter is gone. It was never passed; the handler rides on the invoke-time callbacks.
+
 ## [0.6.0] - 2026-08-17
 
 ### Added

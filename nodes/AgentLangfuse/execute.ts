@@ -933,11 +933,12 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
       // which is absent only when the projects endpoint could not be read.
       if (traceCapture.traceId && response && typeof response === 'object') {
         const out = response as Record<string, unknown>;
-        out.langfuseTraceId = traceCapture.traceId;
+        const trace: { id: string; url?: string } = { id: traceCapture.traceId };
         if (langfuseProjectId) {
           const base = resolveBaseUrl(langfuseCreds).replace(/\/+$/, '');
-          out.langfuseTraceUrl = `${base}/project/${langfuseProjectId}/traces/${traceCapture.traceId}`;
+          trace.url = `${base}/project/${langfuseProjectId}/traces/${traceCapture.traceId}`;
         }
+        out.langfuseTrace = trace;
       }
 
       return response;

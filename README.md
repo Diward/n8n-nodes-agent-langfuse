@@ -8,7 +8,7 @@ An n8n community node that brings **AI Agent execution** and **[Langfuse](https:
 
 > **First n8n node to combine Agent V3 architecture with native Langfuse prompt management and tracing.**
 
-![Node in n8n canvas](assets/node-canvas.png)
+![Node in n8n canvas](assets/0.6.1/node-canvas.png)
 
 ## Why this node?
 
@@ -84,9 +84,7 @@ npm install n8n-nodes-agent-langfuse
 
 ### 1. Create Langfuse Credentials
 
-![Credential setup](assets/credential-setup.png)
-
-> Screenshot pending update. It predates 0.3.0, so it shows the credential named "Langfuse API" and its first field labelled "Langfuse Host URL". They are now **Agent Langfuse API** and **Base URL**. The steps below are current.
+![Credential setup](assets/0.6.1/credential-setup.png)
 
 1. In n8n, go to **Credentials > New Credential**
 2. Search for **Agent Langfuse API**
@@ -100,9 +98,7 @@ npm install n8n-nodes-agent-langfuse
 
 ### 2. Configure the Node
 
-![Node configuration](assets/node-configuration.png)
-
-> Screenshot pending update. Its Custom Metadata example sets `workflow` and reads `{{ $execution.id }}` by hand. Both are now populated automatically, and `workflow` is a reserved key that gets dropped with a warning. Do not copy that JSON. See [Automatic Metadata](#automatic-metadata).
+![Node configuration](assets/0.6.1/node-configuration.png)
 
 1. Search for **"AI Agent + Langfuse"** in the node panel
 2. Drag it into your workflow
@@ -122,9 +118,7 @@ npm install n8n-nodes-agent-langfuse
 
 ### Langfuse Prompt Selector
 
-![Prompt dropdown](assets/prompt-dropdown.png)
-
-> Screenshot pending update. The Custom Metadata panel visible behind the dropdown carries the same outdated example noted above.
+![Prompt dropdown](assets/0.6.1/prompt-dropdown.png)
 
 The dropdown fetches all production `chat`-type prompts from your Langfuse project (every page of the list). Select one, and the node automatically:
 - Injects the prompt content as the system message
@@ -251,9 +245,7 @@ The following fields are **automatically included** in every trace, with no conf
 
 ### Langfuse Trace Output
 
-![Langfuse trace](assets/langfuse-trace.png)
-
-> Screenshot pending update. It predates the automatic workflow context, so its metadata has no `execution_id`, `workflow` object or `node`, and the trace is named after the node alone rather than `<workflow name> - <node name>`.
+![Langfuse trace](assets/0.6.1/langfuse-trace.png)
 
 Every execution produces a full trace in Langfuse showing:
 - The complete LLM call chain (agent, prompt template, model call, output parsing)
@@ -273,6 +265,8 @@ Each output item also carries the trace's identity, so a downstream node can lin
 #### Parse Output as JSON
 
 When the prompt makes the agent answer with a JSON object, the **Parse Output as JSON** toggle (off by default) parses that answer and returns its fields as the item, so no downstream Code or Set node is needed to unwrap it:
+
+![Parse Output as JSON](assets/0.6.1/parse-json-output.png)
 
 ```json
 // Toggle off (default)

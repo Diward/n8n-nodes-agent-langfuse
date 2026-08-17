@@ -103,6 +103,32 @@ function findMessageContent(
   return msg?.content;
 }
 
+/**
+ * Reduces a Langfuse chat prompt to the turns this node uses: the first system
+ * message and the first user message. Every other turn (few-shot examples,
+ * assistant turns, later user turns, non-string content) is counted so the
+ * caller can warn instead of dropping them silently. Exported for tests.
+ */
+export function pickPromptMessages(
+  messages: Array<{ role?: string; content?: unknown }>,
+): { systemMessage?: string; userMessage?: string; ignoredTurns: number } {
+  let systemMessage: string | undefined;
+  let userMessage: string | undefined;
+  let ignoredTurns = 0;
+  for (const m of messages) {
+    if (systemMessage === undefined && m.role === 'system' && typeof m.content === 'string') {
+      systemMessage = m.content;
+      continue;
+    }
+    if (userMessage === undefined && m.role === 'user' && typeof m.content === 'string') {
+      userMessage = m.content;
+      continue;
+    }
+    ignoredTurns++;
+  }
+  return { systemMessage, userMessage, ignoredTurns };
+}
+
 export async function fetchPrompt(
   credentials: LangfuseCredentials,
   promptName: string,
@@ -130,12 +156,10 @@ export async function fetchPrompt(
     throw new NodeOperationError(node, `Prompt '${promptName}' has no content`);
   }
 
-  const systemMessage = findMessageContent(promptMessages, 'system');
+  const { systemMessage, userMessage, ignoredTurns } = pickPromptMessages(promptMessages);
   if (!systemMessage) {
     throw new NodeOperationError(node, `Prompt '${promptName}' has no system message`);
   }
-
-  const userMessage = findMessageContent(promptMessages, 'user');
 
   // Union of {{vars}} referenced across system + user content.
   const required = new Set<string>();
@@ -152,6 +176,7 @@ export async function fetchPrompt(
   return {
     systemMessage,
     userMessage,
+    ignoredTurns,
     requiredVariables: [...required],
     modelName: config.model,
     temperature: config.temperature,

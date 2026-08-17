@@ -12,6 +12,8 @@ export interface LangfuseCredentials {
 export interface LangfusePromptResult {
   systemMessage: string;
   userMessage?: string;
+  /** Prompt turns beyond the first system and first user message, not used by the node. */
+  ignoredTurns: number;
   requiredVariables: string[];
   modelName?: string;
   temperature?: number;

@@ -614,6 +614,12 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
 
     langfusePromptResult = await fetchPrompt(langfuseCreds, promptName, this.getNode());
 
+    if (langfusePromptResult.ignoredTurns > 0) {
+      this.logger.warn(
+        `Langfuse prompt '${promptName}' has ${langfusePromptResult.ignoredTurns} message turn(s) beyond the first system and user messages; this node does not use them.`,
+      );
+    }
+
     // Optionally override model name and temperature from Langfuse config
     const modelSource = this.getNodeParameter('modelSource', 0, 'manual') as string;
     if (modelSource === 'langfuse') {

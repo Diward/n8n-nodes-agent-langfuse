@@ -16,7 +16,7 @@ import { CallbackHandler } from '@langfuse/langchain';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const omit = require('lodash/omit') as <T extends object>(obj: T, ...keys: string[]) => Partial<T>;
 import { NodeOperationError, jsonParse, sleep } from 'n8n-workflow';
-import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+import type { IExecuteFunctions, INode, INodeExecutionData } from 'n8n-workflow';
 import { z } from 'zod';
 
 import { extractBinaryMessages } from './binaryPassthrough';
@@ -96,32 +96,48 @@ function getOutputParserSchema(outputParser: { getSchema?: () => unknown }): unk
   return outputParser.getSchema?.() ?? z.object({ text: z.string() });
 }
 
-async function getTools(ctx: IExecuteFunctions, outputParser: unknown): Promise<unknown[]> {
-  const connectedTools =
-    ((await ctx.getInputConnectionData('ai_tool', 0)) as unknown[] | null) ?? [];
-
+/**
+ * Flattens toolkits, then enforces unique tool names, in that order.
+ *
+ * The order matters (issue #9): a toolkit wrapper has no `name` of its own, so
+ * checking uniqueness before unwrapping made two MCP Client Tool wrappers
+ * collide on 'undefined' and the node threw. A toolkit from another package
+ * copy also fails the `instanceof Toolkit` check but still carries its tools in
+ * a `tools` array, which is why both shapes are unwrapped here.
+ *
+ * Exported for tests.
+ */
+export function collectTools(connectedTools: unknown[], node: INode): unknown[] {
   const flatTools = connectedTools.flatMap((toolOrToolkit: unknown) => {
     if (toolOrToolkit instanceof Toolkit) {
       return toolOrToolkit.getTools();
     }
+    const wrapper = toolOrToolkit as Record<string, unknown> | null;
+    if (wrapper && Array.isArray(wrapper.tools)) {
+      return wrapper.tools as unknown[];
+    }
     return toolOrToolkit;
   });
 
-  // Enforce unique names
   const seenNames = new Set<string>();
-  const finalTools: unknown[] = [];
-
   for (const tool of flatTools) {
     const name = (tool as { name: string }).name;
     if (seenNames.has(name)) {
       throw new NodeOperationError(
-        ctx.getNode(),
+        node,
         `You have multiple tools with the same name: '${name}', please rename them to avoid conflicts`,
       );
     }
     seenNames.add(name);
-    finalTools.push(tool);
   }
+  return flatTools;
+}
+
+async function getTools(ctx: IExecuteFunctions, outputParser: unknown): Promise<unknown[]> {
+  const connectedTools =
+    ((await ctx.getInputConnectionData('ai_tool', 0)) as unknown[] | null) ?? [];
+
+  const finalTools = collectTools(connectedTools, ctx.getNode());
 
   if (outputParser) {
     const schema = getOutputParserSchema(outputParser as { getSchema?: () => unknown });
@@ -361,10 +377,9 @@ export function createAgentExecutor(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fallbackModel: any,
   willStream: boolean,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  langfuseHandler?: any,
 ): AgentExecutor {
-  const callbacks = langfuseHandler ? [langfuseHandler] : [];
+  // The Langfuse handler is passed at invoke time (executeOptions.callbacks),
+  // not on the executor: invoke-time callbacks propagate to every child run.
 
   const agent = createToolCallingAgent({
     llm: model,
@@ -400,7 +415,6 @@ export function createAgentExecutor(
     tools,
     returnIntermediateSteps: options.returnIntermediateSteps === true,
     maxIterations: (options.maxIterations as number) ?? 10,
-    callbacks,
   });
 }
 
@@ -693,22 +707,13 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
       const tools = await getTools(this, outputParser);
       const options = this.getNodeParameter('options', itemIndex, {}) as Record<string, unknown>;
 
-      // Unwrap nested toolkits
-      const wrappedTools: unknown[] = [];
-      for (const t of tools) {
-        if ('tools' in (t as Record<string, unknown>) && Array.isArray((t as Record<string, unknown>).tools)) {
-          wrappedTools.push(...((t as Record<string, unknown>).tools as unknown[]));
-          continue;
-        }
-        wrappedTools.push(t);
-      }
-
       // Gemini/Vertex rejects JSON-schema keywords that OpenAI/Anthropic
       // tolerate (additionalProperties, string formats, anyOf/oneOf, ...).
       // Sanitize tool schemas so Vertex accepts the functionDeclarations.
       // No-op for non-Google models, so OpenAI/Anthropic behaviour is unchanged.
+      // Toolkits were already flattened by collectTools inside getTools.
       if (isGeminiModel(model)) {
-        sanitizeToolsForGemini(wrappedTools);
+        sanitizeToolsForGemini(tools);
       }
 
       // -------------------------------------------------------------------
@@ -842,7 +847,7 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
 
       const executor = createAgentExecutor(
         model,
-        wrappedTools,
+        tools,
         prompt,
         options,
         outputParser,

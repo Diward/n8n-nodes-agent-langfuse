@@ -37,23 +37,16 @@ If you use n8n's AI Agent with Langfuse, you currently need:
 
 ### vs. other Langfuse nodes
 
-Two kinds of node exist in this space: an agent node (runs the tool-calling agent and traces it) and the official Langfuse node (fetches a prompt, no agent). This node is the agent kind, kept current with n8n's own agent.
+Two kinds of node exist in this space: agent nodes (run the tool-calling agent and trace it) and the official Langfuse node (fetches prompts, no agent). This node is the agent kind. What sets it apart is the depth of the Langfuse integration: prompt management wired into the node UI, and tracing built on the v5 SDK with strict per-credential isolation.
 
-| Feature | This node | Other agent + Langfuse nodes | Official Langfuse node |
-|---------|-----------|------------------------------|------------------------|
-| Runs the tool-calling agent | Yes | Yes | No (prompt fetch only) |
-| Prompt selector dropdown | Yes | No | Yes |
-| Prompt variable substitution (auto-loaded fields) | Yes | No | No |
-| Model / temperature from prompt config | Yes | No | N/A |
-| Generation linked to prompt version | Yes | No | No |
-| LangChain major aligned with n8n 2.x (tools work) | Yes (1.x) | Mixed (many still on 0.3) | N/A |
-| Langfuse SDK | v5 (OpenTelemetry) | mostly v3 (legacy callback) | N/A (declarative HTTP) |
-| No trace leak across projects (per-credential routing) | Yes | No | N/A |
-| Trace id + URL on the node output | Yes | Rare | N/A |
-| Google Gemini / Vertex tool schemas sanitized | Yes | No | N/A |
-| PDF / text attachment passthrough | Yes | No | N/A |
-| Streaming, fallback model, batching | Yes | Varies | N/A |
-| Published with SLSA provenance | Yes | Rare | No |
+| | This node | Other agent + Langfuse nodes | Official Langfuse node |
+|---|-----------|------------------------------|------------------------|
+| Runs the tool-calling agent (Agent V3, LangChain 1.x) | Yes | Yes | No (prompt fetch only) |
+| Prompt selector with auto-loaded `{{variables}}`, generations linked to the prompt version | Yes | No | Fetch by name, no variables UI |
+| Model and temperature from the prompt config | Yes | No | N/A |
+| Langfuse SDK v5 (OpenTelemetry), no trace leak across credentials | Yes | No (v3 legacy callback) | N/A |
+| Trace id + URL on the output, Parse Output as JSON | Yes | No | N/A |
+| Human in the loop | No ([rorubyy's node](https://github.com/rorubyy/n8n-nodes-ai-agent-langfuse) has it) | Yes | No |
 
 ## Quick Start
 

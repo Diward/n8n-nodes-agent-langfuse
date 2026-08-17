@@ -10,6 +10,21 @@ An n8n community node that brings **AI Agent execution** and **[Langfuse](https:
 
 ![Node in n8n canvas](assets/0.6.1/node-canvas.png)
 
+## Contents
+
+- [Why this node?](#why-this-node)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Installation](#installation)
+- [Setup](#setup)
+- [Configuration](#configuration) (prompts, variables, metadata, node output)
+- [Examples](#examples)
+- [Multiple Langfuse Projects](#multiple-langfuse-projects)
+- [Compatibility](#compatibility)
+- [Upgrading](#upgrading)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
 ## Why this node?
 
 If you use n8n's AI Agent with Langfuse, you currently need:
@@ -56,11 +71,11 @@ Two kinds of node exist in this space: an agent node (runs the tool-calling agen
 - **Prompt-Linked Generations**: Each generation is linked to the Langfuse prompt version, so it appears under the prompt's *Generations* tab and feeds its metrics (cost, latency by version).
 - **Automatic Tracing**: Every execution is traced to Langfuse with full LLM call details, tool usage, and intermediate steps. The trace name defaults to `<workflow name> - <node name>`, so traces are easy to disambiguate when you reuse a node across workflows.
 - **Auto Metadata**: Execution ID, workflow info, node name, project, and prompt name/version are automatically included in every trace. Add your own custom metadata on top (reserved keys are listed in the [Langfuse Metadata](#langfuse-metadata) section).
+- **Parse Output as JSON**: Opt-in (default off). Parses the agent JSON text output into the item and cleans code fences / surrounding text. Complements the Output Parser: lightweight, no schema, does not touch the prompt. Hidden when an output parser is connected.
 - **Streaming**: Full streaming support for real-time responses.
 - **Fallback Model**: Configure a backup model that activates if the primary fails.
 - **Batch Processing**: Process multiple items with configurable batch size and delay.
 - **Output Parser**: Connect structured output parsers for typed responses.
-- **Parse Output as JSON**: Opt-in (default off). Parses the agent JSON text output into the item and cleans code fences / surrounding text. Complements the Output Parser: lightweight, no schema, does not touch the prompt. Hidden when an output parser is connected.
 - **Memory**: Connect memory nodes for conversational agents.
 
 ## Installation
@@ -243,7 +258,7 @@ The following fields are **automatically included** in every trace, with no conf
 }
 ```
 
-### Langfuse Trace Output
+### The Trace in Langfuse
 
 ![Langfuse trace](assets/0.6.1/langfuse-trace.png)
 
@@ -253,9 +268,9 @@ Every execution produces a full trace in Langfuse showing:
 - The output with structured fields
 - All metadata (automatic + custom)
 
-#### Trace on the node output
+### Node Output
 
-Each output item also carries the trace's identity, so a downstream node can link to it, attach a score, or gate on it:
+Each output item carries the agent answer in `output`, plus the trace's identity, so a downstream node can link to it, attach a score, or gate on it:
 
 | Field | Value |
 |-------|-------|
@@ -286,7 +301,8 @@ Code fences and surrounding text are cleaned before parsing. If the answer still
 | Max Iterations | 10 | Maximum agent reasoning loops |
 | Return Intermediate Steps | false | Include tool calls and reasoning in output |
 | Enable Streaming | true | Stream responses in real-time |
-| Passthrough Binary Images | true | Forward images from input to the LLM |
+| Automatically Passthrough Binary Images | true | Forward input images to the model as image messages |
+| Automatically Passthrough Binary PDFs | false | Forward input PDFs to models that read them natively (e.g. Google Gemini). Text files (JSON, XML, CSV, YAML) ride along whenever either passthrough option is on. Attachments over 50 MB are refused |
 | Batch Size | 1 | Items to process in parallel |
 | Delay Between Batches | 0 ms | Wait time between batches |
 
@@ -359,28 +375,11 @@ Works with any LangChain-compatible Chat Model: OpenAI, OpenRouter, Anthropic, A
 
 ## Upgrading
 
-### 0.3.x to 0.4.0
+Full release-by-release detail lives in the [CHANGELOG](CHANGELOG.md). The changes that need action:
 
-This release requires **n8n 2.0.0 or later**. It builds its messages with
-`@langchain/core` 1.x, the version n8n 2.x runs. On n8n 1.x, stay on 0.3.3.
-
-Tools now work. Before 0.4.0 every tool call failed on recent n8n because the
-tool result reached the provider without its `tool_call_id`; 0.3.3 patched that
-from the outside, and 0.4.0 removes the cause.
-
-Traces are unchanged in shape and name. Internally they are now produced through
-OpenTelemetry, so a Langfuse server older than 3.x will not accept them.
-
-No credential change. `agentLangfuseApi` keeps its fields.
-
-### 0.2.x to 0.3.0 (breaking)
-
-The credential type was renamed from `langfuseApi` to `agentLangfuseApi`, shown as **Agent Langfuse API**. n8n indexes credential types by a single global name, and the old one collided with other Langfuse community packages. n8n community nodes have no automatic credential migration, so after upgrading:
-
-1. Create a new **Agent Langfuse API** credential with the same Base URL, Public Key and Secret Key.
-2. Select it in each **AI Agent + Langfuse** node.
-
-The old credential is not deleted. It simply no longer matches this node.
+- **0.5.x to 0.6.0 (breaking output shape)**: the trace on the node output moved from the flat `langfuseTraceId` / `langfuseTraceUrl` fields to the nested `langfuseTrace: { id, url }`. If a downstream node read the flat fields, point it at the nested ones.
+- **0.3.x to 0.4.0**: requires **n8n 2.0.0 or later** (the node builds its messages with `@langchain/core` 1.x, the major n8n 2.x runs; this is also what makes tool calling work) and a **Langfuse server on 3.x** (traces go through its OpenTelemetry endpoint). On n8n 1.x, stay on 0.3.3. No credential change.
+- **0.2.x to 0.3.0 (breaking credential)**: the credential type was renamed from `langfuseApi` to `agentLangfuseApi` (**Agent Langfuse API**) to stop colliding with other Langfuse packages. There is no automatic migration: create a new credential with the same values and select it in each node. The old credential is not deleted; it simply no longer matches this node.
 
 ## Troubleshooting
 
@@ -390,13 +389,7 @@ The old credential is not deleted. It simply no longer matches this node.
 - For self-hosted Langfuse: ensure n8n can reach the URL (check Docker networking, firewalls)
 
 ### 401 "Invalid credentials. Confirm that you've configured the correct host." (self-hosted)
-That error body comes from **Langfuse Cloud**, so on a self-hosted instance it means requests are reaching `cloud.langfuse.com` instead of your Base URL.
-
-**On 0.3.0 and later** this should not happen. The credential type is `agentLangfuseApi`, a name no other package registers, so the collision described below is gone. If you still hit it, check that the credential's Base URL points at your instance and that n8n can reach it from inside its container.
-
-**On 0.2.x and earlier** the credential type was named `langfuseApi`. The official `@langfuse/n8n-nodes-langfuse` package registers that same global name with a different field (`host` instead of `url`, defaulting to `https://cloud.langfuse.com`). With both packages installed the winning schema is load-order dependent per process, so the credential test could pass on the main instance while executions returned 401 on queue-mode workers, and the behaviour could flip on any restart. When the official schema won, n8n injected its `host` default into this node's stored credential data. Fixes:
-- **Upgrade to 0.3.0 or later** and recreate the credential (see [Upgrading](#upgrading))
-- On 0.2.2+, the stored `url` always beats an injected `host`, which cures the misrouting. Avoid co-installing both packages anyway: the shared credential type name also makes the credential edit form and the credential test flip between the two schemas
+That error body comes from **Langfuse Cloud**, so on a self-hosted instance it means requests are reaching `cloud.langfuse.com` instead of your Base URL. Check that the credential's Base URL points at your instance and that n8n can reach it from inside its container. On 0.2.x this was caused by a credential type name collision with the official Langfuse package; upgrade to 0.3.0 or later and recreate the credential (see [Upgrading](#upgrading)).
 
 ### Prompt dropdown is empty
 - Check that your Langfuse project has `chat`-type prompts (not `text`-type)

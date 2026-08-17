@@ -31,6 +31,11 @@ function createLangfuseClient(credentials: LangfuseCredentials): LangfuseClient 
   });
 }
 
+// A hung Langfuse server must not block a workflow execution forever: every
+// raw request aborts after this long. Generous, because a prompt list on a
+// slow self-hosted instance is still a single small GET.
+const LANGFUSE_FETCH_TIMEOUT_MS = 15_000;
+
 // Raw fetch used only for endpoints not exposed on the typed SDK surface
 // (prompt list + project name).
 async function langfuseApiRequest(
@@ -48,6 +53,7 @@ async function langfuseApiRequest(
       Authorization: `Basic ${auth}`,
       'Content-Type': 'application/json',
     },
+    signal: AbortSignal.timeout(LANGFUSE_FETCH_TIMEOUT_MS),
   });
 
   if (response.status === 401) {
@@ -66,11 +72,22 @@ export async function fetchPromptNames(
   node: INode,
 ): Promise<Array<{ name: string; value: string }>> {
   try {
-    const data = (await langfuseApiRequest(credentials, '/api/public/v2/prompts')) as {
-      data: LangfusePromptListItem[];
-    };
+    // The endpoint is paginated; stopping at page 1 silently truncated the
+    // dropdown for projects with more prompts than one page holds.
+    const all: LangfusePromptListItem[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const data = (await langfuseApiRequest(
+        credentials,
+        `/api/public/v2/prompts?page=${page}&limit=50`,
+      )) as { data: LangfusePromptListItem[]; meta?: { totalPages?: number } };
+      all.push(...data.data);
+      totalPages = data.meta?.totalPages ?? 1;
+      page++;
+    } while (page <= totalPages);
 
-    return data.data
+    return all
       .filter((p) => p.type === 'chat')
       .map((p) => ({ name: p.name, value: p.name }));
   } catch (error) {

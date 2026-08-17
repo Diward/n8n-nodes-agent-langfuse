@@ -43,3 +43,7 @@ test('throws on a JSON primitive', () => {
 test('throws on an empty / whitespace string', () => {
   assert.throws(() => parseAgentJsonOutput('   '));
 });
+
+test('throws on a non-string, non-object input', () => {
+  assert.throws(() => parseAgentJsonOutput(42));
+});

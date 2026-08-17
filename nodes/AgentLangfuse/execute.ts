@@ -979,23 +979,38 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
         false,
       ) as boolean;
 
-      if (parseJson) {
+      // The toggle is hidden in the UI when an output parser is set, but a
+      // value stored before it was hidden survives in the node parameters, so
+      // the parser connection must win here as well.
+      if (parseJson && !outputParser) {
         let parsedJson: Record<string, unknown>;
         try {
           parsedJson = parseAgentJsonOutput(response.output);
         } catch (err) {
           if (this.continueOnFail()) {
+            const errorJson: Record<string, unknown> = {
+              error: (err as Error).message,
+            };
+            // The agent did run; keep the trace so the model answer can be
+            // inspected in Langfuse.
+            if (response.langfuseTrace !== undefined) {
+              errorJson.langfuseTrace = response.langfuseTrace;
+            }
             returnData.push({
-              json: { error: (err as Error).message },
+              json: errorJson as INodeExecutionData['json'],
               pairedItem: { item: itemIndex },
             });
             return;
           }
           throw new NodeOperationError(this.getNode(), err as Error);
         }
-        // langfuseTrace is a reserved node key: it wins over any same-named field.
+        // langfuseTrace and intermediateSteps are reserved node keys: they win
+        // over any same-named field in the parsed output.
         if (response.langfuseTrace !== undefined) {
           parsedJson.langfuseTrace = response.langfuseTrace;
+        }
+        if (response.intermediateSteps !== undefined) {
+          parsedJson.intermediateSteps = response.intermediateSteps;
         }
         returnData.push({
           json: parsedJson as INodeExecutionData['json'],

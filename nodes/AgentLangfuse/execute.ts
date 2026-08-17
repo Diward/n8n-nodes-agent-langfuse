@@ -979,9 +979,22 @@ export async function toolsAgentExecute(this: IExecuteFunctions): Promise<INodeE
       const response = result.value as Record<string, unknown>;
 
       if (memory && outputParser) {
-        const parsedOutput = jsonParse(response.output as string);
-        response.output =
-          (parsedOutput as Record<string, unknown>)?.output ?? parsedOutput;
+        try {
+          const parsedOutput = jsonParse(response.output as string);
+          response.output =
+            (parsedOutput as Record<string, unknown>)?.output ?? parsedOutput;
+        } catch (err) {
+          // A throw here used to escape the per-item handling and take the
+          // whole node down even with Continue On Fail set.
+          if (this.continueOnFail()) {
+            returnData.push({
+              json: { error: (err as Error).message },
+              pairedItem: { item: itemIndex },
+            });
+            return;
+          }
+          throw new NodeOperationError(this.getNode(), err as Error);
+        }
       }
 
       const parseJson = this.getNodeParameter(

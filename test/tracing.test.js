@@ -345,6 +345,81 @@ test('environment rides on the root span through the route', async () => {
   assert.equal(attributes.get('langfuse.environment'), 'staging');
 });
 
+test('every span of the trace carries the environment, not only the root', async () => {
+  // Langfuse derives a trace's environment from any of its spans: each one also
+  // emits a shallow trace event carrying id, timestamp and environment, and the
+  // deduplication that prefers the root's full event only applies when both land
+  // in the same ingestion batch. With the attribute on the root alone, the nine
+  // child spans of an agent run report the default environment and win the race
+  // most of the time.
+  const processor = fakeProcessor();
+  const router = new RoutingSpanProcessor(() => processor);
+  router.ensure(CREDS_A);
+
+  const attributes = new Map();
+  const root = {
+    ...fakeSpan('t-env-all'),
+    setAttribute: (key, value) => attributes.set(key, value),
+  };
+  const child = {
+    ...fakeSpan('t-env-all'),
+    parentSpanContext: { spanId: 'aaaaaaaaaaaaaaaa' },
+    setAttribute: (key, value) => attributes.set('CHILD:' + key, value),
+  };
+
+  await runWithRouteForTests(
+    router,
+    CREDS_A,
+    async () => {
+      router.onStart(root, {});
+      router.onStart(child, {});
+    },
+    new Set(),
+    { sessionId: 'sess-1', userId: 'user-1', environment: 'prod' },
+  );
+
+  assert.equal(attributes.get('langfuse.environment'), 'prod');
+  assert.equal(attributes.get('CHILD:langfuse.environment'), 'prod');
+  // Session and user stay trace level: Langfuse reads them off the root only.
+  assert.equal(attributes.has('CHILD:session.id'), false);
+  assert.equal(attributes.has('CHILD:user.id'), false);
+});
+
+test("the node's environment outlives the one the Langfuse processor writes", async () => {
+  // LangfuseSpanProcessor.onStart sets langfuse.environment from its own option,
+  // which falls back to LANGFUSE_TRACING_ENVIRONMENT. Delegating before applying
+  // the route's identity is what keeps the value configured on the node
+  // authoritative over whatever the process environment says.
+  const processor = fakeProcessor();
+  const overwriting = {
+    ...processor,
+    onStart: (span) => {
+      processor.onStart(span);
+      span.setAttribute('langfuse.environment', 'from-processor');
+    },
+  };
+  const router = new RoutingSpanProcessor(() => overwriting);
+  router.ensure(CREDS_A);
+
+  const attributes = new Map();
+  const root = {
+    ...fakeSpan('t-env-order'),
+    setAttribute: (key, value) => attributes.set(key, value),
+  };
+
+  await runWithRouteForTests(
+    router,
+    CREDS_A,
+    async () => {
+      router.onStart(root, {});
+    },
+    new Set(),
+    { environment: 'prod' },
+  );
+
+  assert.equal(attributes.get('langfuse.environment'), 'prod');
+});
+
 test('runTraced captures the trace id the execution raised', async () => {
   const processor = fakeProcessor();
   const router = new RoutingSpanProcessor(() => processor);

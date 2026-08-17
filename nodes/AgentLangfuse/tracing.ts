@@ -46,6 +46,22 @@ export function isTraceRoot(span: Span | ReadableSpan): boolean {
 }
 
 /**
+ * Writes the environment onto a span, root or not.
+ *
+ * Unlike session and user, the environment is not a trace level field Langfuse
+ * reads off the root: every span it ingests also emits a shallow trace event
+ * carrying `id`, `timestamp` and `environment`, and the deduplication that
+ * prefers the root's full event only fires when both land in the same ingestion
+ * batch. Writing it on the root alone leaves the other spans of the trace
+ * reporting the default environment, and one of them usually gets there first.
+ */
+export function applySpanEnvironment(span: Span, identity: TraceIdentity): void {
+  if (identity.environment) {
+    span.setAttribute(LangfuseOtelSpanAttributes.ENVIRONMENT, identity.environment);
+  }
+}
+
+/**
  * Writes `sessionId` and `userId` onto the root span of a trace.
  *
  * Langfuse's own `propagateAttributes` would do this, but it writes to
@@ -61,9 +77,7 @@ export function applyTraceIdentity(span: Span, identity: TraceIdentity): void {
   if (identity.userId) {
     span.setAttribute(LangfuseOtelSpanAttributes.TRACE_USER_ID, identity.userId);
   }
-  if (identity.environment) {
-    span.setAttribute(LangfuseOtelSpanAttributes.ENVIRONMENT, identity.environment);
-  }
+  applySpanEnvironment(span, identity);
 }
 
 /**
@@ -102,8 +116,13 @@ export class RoutingSpanProcessor implements SpanProcessor {
     const { traceId } = span.spanContext();
     this.routes.set(traceId, route.fingerprint);
     route.traceIds.add(traceId);
-    if (isTraceRoot(span)) applyTraceIdentity(span, route.identity);
+    // Delegate first: LangfuseSpanProcessor.onStart writes the environment from
+    // its own option, which falls back to LANGFUSE_TRACING_ENVIRONMENT. Applying
+    // the route's identity afterwards keeps what the node was configured with
+    // authoritative over whatever the process environment says.
     this.processors.get(route.fingerprint)?.onStart(span, parentContext);
+    if (isTraceRoot(span)) applyTraceIdentity(span, route.identity);
+    else applySpanEnvironment(span, route.identity);
   }
 
   onEnd(span: ReadableSpan): void {

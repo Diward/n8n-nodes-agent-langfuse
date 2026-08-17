@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-08-17
+
+### Fixed
+
+- **The Environment field now reaches the trace, not just its root observation.** Langfuse derives a trace's environment from any of its spans: every ingested span also emits a shallow trace event carrying the environment, and the deduplication that prefers the root's full event only applies when both land in the same ingestion batch. The attribute was written on the root span alone, so the other spans of an agent run reported the default environment and usually got there first. The trace showed `default` while its root observation showed the configured value. The environment is now written on every span of the trace; session and user stay on the root, where Langfuse reads them from.
+- **A `LANGFUSE_TRACING_ENVIRONMENT` variable in the host process can no longer override the field.** The route's identity is applied after delegating to the Langfuse span processor, so the value configured on the node wins.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

@@ -268,6 +268,20 @@ Each output item also carries the trace's identity, so a downstream node can lin
 | `langfuseTrace.id` | The trace id (matches the trace in Langfuse). |
 | `langfuseTrace.url` | A direct link to the trace, e.g. `https://cloud.langfuse.com/project/<id>/traces/<traceId>`. Present when the project id can be read from the Langfuse API. |
 
+#### Parse Output as JSON
+
+When the prompt makes the agent answer with a JSON object, the **Parse Output as JSON** toggle (off by default) parses that answer and returns its fields as the item, so no downstream Code or Set node is needed to unwrap it:
+
+```json
+// Toggle off (default)
+{ "output": "{\"sentiment\": \"positive\", \"score\": 0.9}", "langfuseTrace": { "id": "...", "url": "..." } }
+
+// Toggle on
+{ "sentiment": "positive", "score": 0.9, "langfuseTrace": { "id": "...", "url": "..." } }
+```
+
+Code fences and surrounding text are cleaned before parsing. If the answer still is not a JSON object, the node fails, or emits an `{ "error": ..., "langfuseTrace": ... }` item when Continue On Fail is set. `langfuseTrace` and `intermediateSteps` are reserved keys: they always win over same-named fields in the parsed answer. The toggle is hidden when an output parser is connected, and the parser wins.
+
 ### Options
 
 | Option | Default | Description |

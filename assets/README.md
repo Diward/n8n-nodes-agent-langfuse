@@ -16,6 +16,9 @@ Captured on 2026-08-17 against the real published node (0.6.1) and Langfuse v3.2
 | `prompt-dropdown.png` | The prompt selector open, listing the `chat` prompts of the project |
 | `parse-json-output.png` | The node output panel (JSON view) after a run with the toggle on: the agent JSON answer as fields at the item root (`package`, `version`, `license`) plus the nested `langfuseTrace` |
 | `langfuse-trace.png` | A Langfuse trace named `<workflow name> - <node name>`, with its span tree, latency, cost, token counts and the input panel |
+| `example-basic.png` | Canvas: Manual Trigger -> AI Agent + Langfuse -> Output, with a Chat Model connected |
+| `example-subworkflow.png` | Canvas: Sub-workflow Trigger -> AI Agent + Langfuse -> Return, with Chat Model and an HTTP tool |
+| `example-chat.png` | Canvas: Chat Trigger -> AI Agent + Langfuse -> Response, with Chat Model, an HTTP tool and Memory |
 
 ## How to capture
 

@@ -320,11 +320,7 @@ Code fences and surrounding text are cleaned before parsing. If the answer still
 
 ### Basic: Agent with Langfuse Prompt
 
-```
-Manual Trigger → AI Agent + Langfuse → Output
-                      ↑
-                 Chat Model (OpenRouter)
-```
+![Basic example](assets/0.6.1/example-basic.png)
 
 1. Set **Prompt Source** = "Langfuse Prompt"
 2. Select your prompt from the dropdown
@@ -333,21 +329,13 @@ Manual Trigger → AI Agent + Langfuse → Output
 
 ### Sub-workflow: Reusable Agent
 
-```
-Sub-workflow Trigger → AI Agent + Langfuse → Return
-                            ↑        ↑
-                       Chat Model   Tool (HTTP)
-```
+![Sub-workflow example](assets/0.6.1/example-subworkflow.png)
 
 Perfect for n8n pipelines where multiple workflows call the same agent. Each gets its own Langfuse trace with the correct prompt and model.
 
 ### With Tools and Memory
 
-```
-Chat Trigger → AI Agent + Langfuse → Response
-                    ↑    ↑    ↑
-              Chat Model Tool Memory
-```
+![Chat example with tools and memory](assets/0.6.1/example-chat.png)
 
 Full conversational agent with tool access and conversation history, all traced to Langfuse.
 

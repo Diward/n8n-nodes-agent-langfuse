@@ -52,6 +52,26 @@ async function readBinary(ctx: IExecuteFunctions, data: IBinaryData): Promise<Bu
   return await ctx.helpers.binaryToBuffer(stream);
 }
 
+/** One size gate for every passthrough kind: images, PDFs and text alike. */
+function assertWithinSizeLimit(
+  ctx: IExecuteFunctions,
+  sizeInBytes: number,
+  fileName: string | undefined,
+): void {
+  if (sizeInBytes <= DEFAULT_MAX_PASSTHROUGH_BINARY_SIZE_BYTES) return;
+  const name = fileName ?? 'binary file';
+  const sizeInMb = (sizeInBytes / (1024 * 1024)).toFixed(1);
+  const limitInMb = (DEFAULT_MAX_PASSTHROUGH_BINARY_SIZE_BYTES / (1024 * 1024)).toFixed(1);
+  throw new NodeOperationError(
+    ctx.getNode(),
+    `The file "${name}" is ${sizeInMb} MB, which exceeds the ${limitInMb} MB limit for passing binary data to the model`,
+    {
+      description:
+        'Reduce the file size, or disable the binary passthrough option for this input.',
+    },
+  );
+}
+
 /** Strips the `data:<mime>;base64,` prefix n8n sometimes keeps on the payload. */
 function toBase64(data: IBinaryData): string {
   return data.data.includes('base64,') ? data.data.split('base64,')[1] : data.data;
@@ -84,19 +104,7 @@ export async function processBinaryForAgentPassthrough(
     : toBase64(data);
 
   const sizeInBytes = Buffer.byteLength(base64Data, 'base64');
-  if (sizeInBytes > DEFAULT_MAX_PASSTHROUGH_BINARY_SIZE_BYTES) {
-    const fileName = data.fileName ?? 'binary file';
-    const sizeInMb = (sizeInBytes / (1024 * 1024)).toFixed(1);
-    const limitInMb = (DEFAULT_MAX_PASSTHROUGH_BINARY_SIZE_BYTES / (1024 * 1024)).toFixed(1);
-    throw new NodeOperationError(
-      ctx.getNode(),
-      `The file "${fileName}" is ${sizeInMb} MB, which exceeds the ${limitInMb} MB limit for passing binary data to the model`,
-      {
-        description:
-          'Reduce the file size, or disable the binary passthrough option for this input.',
-      },
-    );
-  }
+  assertWithinSizeLimit(ctx, sizeInBytes, data.fileName);
 
   if (type === 'file') {
     return {
@@ -115,8 +123,11 @@ export async function processBinaryForAgentPassthrough(
 }
 
 async function readAsText(ctx: IExecuteFunctions, data: IBinaryData): Promise<string> {
-  if (data.id) return (await readBinary(ctx, data)).toString('utf-8');
-  return Buffer.from(toBase64(data), 'base64').toString('utf-8');
+  const buffer = data.id
+    ? await readBinary(ctx, data)
+    : Buffer.from(toBase64(data), 'base64');
+  assertWithinSizeLimit(ctx, buffer.length, data.fileName);
+  return buffer.toString('utf-8');
 }
 
 /** Collects every attachment the options allow into a single human message. */

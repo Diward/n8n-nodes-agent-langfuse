@@ -9,6 +9,7 @@
 import { RunnableSequence } from '@langchain/core/runnables';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { HumanMessage } from '@langchain/core/messages';
+import type { LLMResult } from '@langchain/core/outputs';
 import { createToolCallingAgent, AgentExecutor, Toolkit } from '@langchain/classic/agents';
 import { DynamicStructuredTool } from '@langchain/classic/tools';
 import { ChatOpenAI } from '@langchain/openai';
@@ -39,10 +40,41 @@ const SYSTEM_MESSAGE = 'You are a helpful assistant';
  * Tool calls are already reported by `handleToolStart`, so dropping these two
  * callbacks loses no information and restores a single, correctly nested trace.
  */
-class AgentLangfuseCallbackHandler extends CallbackHandler {
+export class AgentLangfuseCallbackHandler extends CallbackHandler {
   async handleAgentAction(): Promise<void> {}
 
   async handleAgentEnd(): Promise<void> {}
+
+  async handleLLMEnd(output: LLMResult, runId: string, parentRunId?: string): Promise<void> {
+    return super.handleLLMEnd(liftUsageMetadata(output), runId, parentRunId);
+  }
+}
+
+/**
+ * Copies the message's `usage_metadata` into `llmOutput.tokenUsage`.
+ *
+ * `@langfuse/langchain` reads the per-token breakdown from the message, but
+ * only after `message instanceof AIMessage` passes, and that check is against
+ * the `@langchain/core` this package resolves. n8n builds the chat model from
+ * its own copy, so the message arrives branded by a different class object and
+ * the check fails. The handler then falls back to `llmOutput.tokenUsage`, whose
+ * legacy shape has no cache or reasoning split, and Langfuse prices every input
+ * token at full rate: cached input is billed as if it were not cached.
+ *
+ * Writing the same object into the fallback slot makes both paths carry the
+ * breakdown, so the fix holds whether or not the `instanceof` ever starts
+ * passing. Returns a copy: the caller's result is left alone.
+ */
+function liftUsageMetadata(output: LLMResult): LLMResult {
+  const lastBatch = output.generations?.[output.generations.length - 1];
+  const lastGeneration = lastBatch?.[lastBatch.length - 1] as
+    | { message?: { usage_metadata?: Record<string, unknown> } }
+    | undefined;
+  const usageMetadata = lastGeneration?.message?.usage_metadata;
+
+  if (!usageMetadata) return output;
+
+  return { ...output, llmOutput: { ...output.llmOutput, tokenUsage: usageMetadata } };
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-09-09
+
+### Fixed
+
+- **The per-token breakdown reaches Langfuse again: cached input is no longer billed as fresh input.** `@langfuse/langchain` reads `usage_metadata` off the message, but only after an `instanceof AIMessage` check against the `@langchain/core` this package resolves. n8n builds the chat model from its own copy, so the message arrives branded by a different class object, the check fails, and the handler silently falls back to the legacy `llmOutput.tokenUsage`, which has no cache or reasoning split. Langfuse then priced every input token at the full rate. Measured on a production instance: 1153 generations over 90 days, not one `input_cache_read` and not one `output_reasoning`, on reasoning models throughout. The node now copies `usage_metadata` into the fallback slot as well, so the breakdown survives whether or not the `instanceof` passes.
+
 ## [0.6.2] - 2026-08-17
 
 ### Fixed

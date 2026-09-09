@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-agent-langfuse",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "n8n AI Agent node with native Langfuse integration: tracing + prompt management",
   "keywords": [
     "n8n-community-node-package",
@@ -88,6 +88,7 @@
     "zod-to-json-schema": "^3.22.3"
   },
   "devDependencies": {
+    "@langchain/core-foreign": "npm:@langchain/core@^1.2.8",
     "@types/node": "^20.19.43",
     "n8n-workflow": "^2.13.1",
     "typescript": "^6.0.3",

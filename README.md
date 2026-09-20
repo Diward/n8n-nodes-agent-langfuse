@@ -4,7 +4,12 @@
 [![npm downloads](https://img.shields.io/npm/dm/n8n-nodes-agent-langfuse)](https://www.npmjs.com/package/n8n-nodes-agent-langfuse)
 [![license](https://img.shields.io/npm/l/n8n-nodes-agent-langfuse)](LICENSE)
 
-An n8n community node that brings **AI Agent execution** and **[Langfuse](https://langfuse.com) observability** together in a single node. Select prompts from Langfuse, override models dynamically, and get full tracing, all without extra nodes in your workflow.
+Two n8n community nodes that bring **AI execution** and **[Langfuse](https://langfuse.com) observability** together, without extra nodes in your workflow.
+
+- **AI Agent + Langfuse** runs the tool-calling agent, pulls its prompt from Langfuse and traces the whole thing.
+- **Decision Agent + Langfuse** (new in 0.7.0) calls a *decision* model, one that returns a typed answer instead of text, and traces it with the cost the provider reported.
+
+The agent node brings **AI Agent execution** and Langfuse together in a single node. Select prompts from Langfuse, override models dynamically, and get full tracing, all without extra nodes in your workflow.
 
 > **First n8n node to combine Agent V3 architecture with native Langfuse prompt management and tracing.**
 
@@ -13,6 +18,7 @@ An n8n community node that brings **AI Agent execution** and **[Langfuse](https:
 ## Contents
 
 - [Why this node?](#why-this-node)
+- [Decision Agent + Langfuse](#decision-agent--langfuse)
 - [Quick Start](#quick-start)
 - [Features](#features)
 - [Installation](#installation)
@@ -47,6 +53,58 @@ Two kinds of node exist in this space: agent nodes (run the tool-calling agent a
 | Langfuse SDK v5 (OpenTelemetry), no trace leak across credentials | Yes | No (v3 legacy callback) | N/A |
 | Trace id + URL on the output, Parse Output as JSON | Yes | No | N/A |
 | Human in the loop | No ([rorubyy's node](https://github.com/rorubyy/n8n-nodes-ai-agent-langfuse) has it) | Yes | No |
+
+## Decision Agent + Langfuse
+
+Some models do not generate text. You give them a state and a set of typed questions, and they answer
+with a label or a probability, calibrated. Added in 0.7.0, this second node calls one and puts the call
+in Langfuse, where an HTTP Request node would leave it outside your observability.
+
+![Decision agent on the canvas](assets/0.7.0/decision-canvas.png)
+
+**Questions** come in three types:
+
+| Type | Answers with | Criteria |
+|---|---|---|
+| `Yes/No (Noul)` | the probability of yes | none |
+| `Choice` | one of your labels, plus the probability of each | a map of label to description |
+| `Score` | a number over your ordered levels, plus a legend | the levels, in order |
+
+![Node parameters](assets/0.7.0/decision-node.png)
+
+**Output.** Each answer lands on the item under its own name, with the raw `answers` and `confidences`
+alongside, so a plain IF node can branch on them:
+
+![Execution output](assets/0.7.0/decision-output.png)
+
+```json
+{
+  "is_billing_issue": 0.99,
+  "area": "billing",
+  "urgency": 2.9,
+  "answers": { "area": { "type": "choice", "choice": "billing",
+                         "probabilities": { "billing": 1, "bug": 0 }, "confidence": 1 } },
+  "confidences": { "area": 1, "urgency": 0.9 },
+  "usage": { "input_tokens": 500, "output_tokens": 81, "cost": 0.000021 },
+  "langfuseTrace": { "id": "...", "url": "..." }
+}
+```
+
+**The trace carries the provider's cost.** Langfuse honours a provided cost over its own price table,
+so the number on your dashboard is the one that was billed, not an estimate from a model lookup.
+
+**Credentials.** Two, both always required: your Langfuse credential for the trace, and n8n's own
+**OpenRouter** credential for the call. Only the API key is read from it; the endpoint origin is derived
+from its base url, so a proxy or a self-hosted gateway keeps working.
+
+### Before you use it
+
+- **Decision models are not deterministic, and there is no temperature to turn down.** Repeating the
+  same request can change an answer. Confidence predicts that well, so a hybrid works: decide with the
+  model above a confidence threshold and fall back to an LLM below it. That is what the `Confident
+  enough?` branch does in the screenshot above.
+- **The endpoint is alpha** (`/api/alpha/decisions`). Pin the model version rather than a moving alias,
+  and keep a fallback path in the workflow.
 
 ## Quick Start
 

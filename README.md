@@ -93,6 +93,8 @@ alongside, so a plain IF node can branch on them:
 **The trace carries the provider's cost.** Langfuse honours a provided cost over its own price table,
 so the number on your dashboard is the one that was billed, not an estimate from a model lookup.
 
+![Trace in Langfuse](assets/0.7.0/decision-trace.png)
+
 **Credentials.** Two, both always required: your Langfuse credential for the trace, and n8n's own
 **OpenRouter** credential for the call. Only the API key is read from it; the endpoint origin is derived
 from its base url, so a proxy or a self-hosted gateway keeps working.

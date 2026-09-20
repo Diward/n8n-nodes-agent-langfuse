@@ -118,6 +118,8 @@ from its base url, so a proxy or a self-hosted gateway keeps working.
 
 ## Features
 
+### AI Agent + Langfuse
+
 - **Langfuse Prompt Selector**: Browse and select production prompts from Langfuse directly in the node UI. No HTTP Request nodes needed.
 - **Model Override**: Use the model and temperature defined in your Langfuse prompt config, or override manually. Switch models by changing Langfuse config, with no workflow edits required.
 - **Prompt Variable Substitution**: `{{variables}}` in your Langfuse prompt auto-load as editable fields in the node. Values support n8n expressions and are validated before any LLM call.
@@ -130,6 +132,13 @@ from its base url, so a proxy or a self-hosted gateway keeps working.
 - **Batch Processing**: Process multiple items with configurable batch size and delay.
 - **Output Parser**: Connect structured output parsers for typed responses.
 - **Memory**: Connect memory nodes for conversational agents.
+
+### Decision Agent + Langfuse
+
+- **Typed questions**: yes/no, choice between labelled options, or a score over ordered levels. Details in [its own section](#decision-agent--langfuse).
+- **Answers on the item**: each one under its own name, with the raw probabilities and confidence alongside, so a plain IF node can branch on them.
+- **Provider-reported cost**: the trace carries the cost the provider billed, which Langfuse honours over its own price table.
+- **No second key**: reuses n8n's own OpenRouter credential.
 
 ## Installation
 
@@ -414,9 +423,15 @@ a self-hosted Langfuse 3.205.
 
 Works with any LangChain-compatible Chat Model: OpenAI, OpenRouter, Anthropic, Azure OpenAI, Google Vertex AI, Ollama, and more.
 
+**Decision Agent + Langfuse** does not take a Chat Model. It needs n8n's **OpenRouter** credential and a
+decision model served there, and it calls `/api/alpha/decisions`, which is an alpha endpoint: pin the
+model version rather than a moving alias.
+
 ## Upgrading
 
 Full release-by-release detail lives in the [CHANGELOG](CHANGELOG.md). The changes that need action:
+
+- **0.6.x to 0.7.0**: nothing to do. The release adds a second node type and leaves `AI Agent + Langfuse` untouched: same name, same credential, same parameters. The new node appears in the palette and is ignored until you use it.
 
 - **0.5.x to 0.6.0 (breaking output shape)**: the trace on the node output moved from the flat `langfuseTraceId` / `langfuseTraceUrl` fields to the nested `langfuseTrace: { id, url }`. If a downstream node read the flat fields, point it at the nested ones.
 - **0.3.x to 0.4.0**: requires **n8n 2.0.0 or later** (the node builds its messages with `@langchain/core` 1.x, the major n8n 2.x runs; this is also what makes tool calling work) and a **Langfuse server on 3.x** (traces go through its OpenTelemetry endpoint). On n8n 1.x, stay on 0.3.3. No credential change.

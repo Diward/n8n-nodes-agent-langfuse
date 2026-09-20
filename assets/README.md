@@ -4,7 +4,20 @@ Screenshots are versioned per release, in a folder named after the version they 
 (`assets/<version>/`). The README always points at the newest folder. When a release changes the UI,
 capture a fresh set into a new folder and repoint the README, so older versions keep their own images.
 
-## Current set: `0.6.1/`
+## `0.7.0/` — the decision node
+
+Captured on 2026-09-20 against the published 0.7.0 and Langfuse v4.15.0, from a demo workflow built for
+them (`[demo] decision agent - ticket triage`): English throughout, a neutral support-ticket example,
+and no account or project names in frame.
+
+| File | Must show |
+|---|---|
+| `decision-canvas.png` | The flow end to end, including the `Confident enough?` branch that routes on confidence. It is what makes the hybrid pattern legible without reading the text |
+| `decision-node.png` | The parameters panel: Model, State as an expression, and the Questions collection with its three types. **Scroll past the credentials**: their names are not for a public screenshot |
+| `decision-output.png` | The output panel with the answers flattened on the item and the full `answers` tree: choice with probabilities, score with its legend, both confidences |
+| `decision-trace.png` | The Langfuse trace, with latency, session, environment and **the provider's cost** on the same row. Crop out the sidebar and the breadcrumb: they carry the account email and the organisation name |
+
+## `0.6.1/` — the agent node
 
 Captured on 2026-08-17 against the real published node (0.6.1) and Langfuse v3.205.
 

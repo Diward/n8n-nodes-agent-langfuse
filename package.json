@@ -78,6 +78,7 @@
     "@langchain/core": "^1.1.41",
     "@langchain/openai": "^1.4.4",
     "@langfuse/client": "^5.9.1",
+    "@langfuse/core": "^5.9.1",
     "@langfuse/langchain": "^5.9.1",
     "@langfuse/otel": "^5.9.1",
     "@langfuse/tracing": "^5.9.1",

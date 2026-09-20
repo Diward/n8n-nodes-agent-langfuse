@@ -163,3 +163,16 @@ test('the span is named after the node, which is what name-matching scoring need
 
   assert.equal(spans[0].name, 'AI Agent - Selector v3');
 });
+
+test('the span is emitted under the tracer name Langfuse exports under', async () => {
+  // LangfuseSpanProcessor drops, in silence, any span whose instrumentation
+  // scope is not LANGFUSE_TRACER_NAME (or a known LLM instrumentor, or carrying
+  // gen_ai.* attributes): see isDefaultExportSpan in @langfuse/otel. Naming the
+  // tracer after this package produced a node that returned a trace id and
+  // sent nothing, which is the worst possible shape of this bug.
+  const { LANGFUSE_TRACER_NAME } = require('@langfuse/core');
+  const { spans } = await run();
+  const scope = spans[0].instrumentationScope ?? spans[0].instrumentationLibrary;
+
+  assert.equal(scope.name, LANGFUSE_TRACER_NAME);
+});

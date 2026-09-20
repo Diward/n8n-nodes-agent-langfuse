@@ -1,6 +1,7 @@
 import { NodeOperationError } from 'n8n-workflow';
 import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { createObservationAttributes, getLangfuseTracerProvider } from '@langfuse/tracing';
+import { LANGFUSE_TRACER_NAME } from '@langfuse/core';
 
 import { withTracing, type TraceCapture } from '../shared/tracing';
 import { resolveBaseUrl } from '../AgentLangfuse/langfuse';
@@ -15,7 +16,12 @@ import {
   type QuestionInput,
 } from './decisions';
 
-const TRACER_NAME = 'n8n-nodes-agent-langfuse';
+// LangfuseSpanProcessor filters what it exports by instrumentation scope
+// (`isDefaultExportSpan` in @langfuse/otel): anything that is not the Langfuse
+// tracer, a known LLM instrumentor or a span carrying `gen_ai.*` attributes is
+// dropped without a word. Naming the tracer after this package produced a node
+// that returned a trace id and shipped nothing.
+const TRACER_NAME = LANGFUSE_TRACER_NAME;
 
 interface DecisionResponse {
   model?: string;

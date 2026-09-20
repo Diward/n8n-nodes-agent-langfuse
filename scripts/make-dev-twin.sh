@@ -54,6 +54,15 @@ sed -i "s/displayName: 'AI Agent + Langfuse'/displayName: 'AI Agent + Langfuse (
   nodes/AgentLangfuse/AgentLangfuse.node.ts
 sed -i "s/name: 'AI Agent + Langfuse'/name: 'AI Agent + Langfuse (dev)'/" \
   nodes/AgentLangfuse/AgentLangfuse.node.ts
+#    - nodo de decisiones: mismo tratamiento. Sin esto el gemelo registraria el
+#      tipo 'decisionAgentLangfuse', que es el mismo que el paquete real publica,
+#      y n8n indexa los tipos de nodo por nombre global.
+sed -i "s/name: 'decisionAgentLangfuse'/name: 'decisionAgentLangfuseDev'/" \
+  nodes/DecisionAgentLangfuse/DecisionAgentLangfuse.node.ts
+sed -i "s/displayName: 'Decision Agent + Langfuse'/displayName: 'Decision Agent + Langfuse (dev)'/" \
+  nodes/DecisionAgentLangfuse/DecisionAgentLangfuse.node.ts
+sed -i "s/name: 'Decision Agent + Langfuse'/name: 'Decision Agent + Langfuse (dev)'/" \
+  nodes/DecisionAgentLangfuse/DecisionAgentLangfuse.node.ts
 
 # 3) reescribir package.json: nombre, version, y blindaje contra publicacion
 #    - private:true -> npm publish lo rechaza (npm pack sigue funcionando)

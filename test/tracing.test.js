@@ -15,7 +15,7 @@ const {
   runTracedForTests,
   isTraceRoot,
   applyTraceIdentity,
-} = require('../dist/nodes/AgentLangfuse/tracing');
+} = require('../dist/nodes/shared/tracing');
 
 const CREDS_A = { url: 'https://lf.example.com', publicKey: 'pk-a', secretKey: 'sk-a' };
 const CREDS_B = { url: 'https://lf.example.com', publicKey: 'pk-b', secretKey: 'sk-b' };

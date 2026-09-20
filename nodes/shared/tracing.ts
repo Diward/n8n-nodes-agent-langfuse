@@ -9,8 +9,11 @@ import {
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { LangfuseOtelSpanAttributes, setLangfuseTracerProvider } from '@langfuse/tracing';
 
-import { resolveBaseUrl } from './langfuse';
-import type { LangfuseCredentials } from './types';
+// resolveBaseUrl and the credential type stay in AgentLangfuse/: both are
+// stateless, so sharing them from there costs nothing. What had to move is
+// THIS module, because it registers a global tracer provider.
+import { resolveBaseUrl } from '../AgentLangfuse/langfuse';
+import type { LangfuseCredentials } from '../AgentLangfuse/types';
 
 /** Trace level fields Langfuse reads from the root span of a trace. */
 export interface TraceIdentity {
@@ -253,6 +256,21 @@ export async function withTracing<T>(
 export function resetTracingForTests(): void {
   provider = undefined;
   router = undefined;
+}
+
+/**
+ * Pre-seeds the module's provider so a test can collect spans instead of
+ * shipping them. Without it `ensureProvider` builds its own on first use and
+ * overwrites whatever the test installed, because `setLangfuseTracerProvider`
+ * is a single global.
+ */
+export function installTracingForTests(
+  buildProcessor: (credentials: LangfuseCredentials) => SpanProcessor,
+): { provider: BasicTracerProvider; router: RoutingSpanProcessor } {
+  router = new RoutingSpanProcessor(buildProcessor);
+  provider = new BasicTracerProvider({ spanProcessors: [router] });
+  setLangfuseTracerProvider(provider);
+  return { provider, router };
 }
 
 export async function runWithRouteForTests<T>(

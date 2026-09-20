@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { extractBinaryMessages } from './binaryPassthrough';
 import { parseAgentJsonOutput } from './jsonOutput';
 import { compilePromptMessages, fetchProject, fetchPrompt, resolveBaseUrl } from './langfuse';
-import { withTracing, type TraceCapture } from './tracing';
+import { withTracing, type TraceCapture } from '../shared/tracing';
 import { isGeminiModel, sanitizeToolsForGemini } from './geminiSchema';
 import type { LangfuseCredentials, LangfuseMetadata } from './types';
 

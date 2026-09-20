@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-20
+
+### Added
+
+- **`Decision Agent + Langfuse`, a second node for models whose output is a decision instead of text.** It calls OpenRouter's `/api/alpha/decisions` with a `state` and typed `questions` (`noul`, `choice`, `score`) and returns the answers flattened onto the item, with the raw probabilities and confidences alongside. There is no agent loop, no tools and no chat model sub-node, because the model takes no messages. It traces to Langfuse as a `generation` with the resolved model snapshot, the usage, and **the cost the provider reported**, which Langfuse honours over its own price table.
+  - It reuses n8n's own `openRouterApi` credential, so no key is entered twice; only the API key is read, and the endpoint origin is derived from the credential's base url so a proxy keeps working.
+  - It is a **separate node type, not a mode** of the chat agent. A mode would need `displayOptions` to hide the half that does not apply, and displayOptions only hides in the editor: a value saved before the switch survives and `getNodeParameter` still returns it.
+
+### Changed
+
+- **`tracing.ts` moved to `nodes/shared/`** and is now imported by both nodes. `setLangfuseTracerProvider` is a global setter and `@langfuse/tracing` is hoisted and shared across every community node in an n8n instance, so a second copy would mean the last one to initialise wins and the loser's spans get exported with the winner's credentials. One module, one provider. The chat agent is otherwise untouched.
+
 ## [0.6.3] - 2026-09-09
 
 ### Fixed

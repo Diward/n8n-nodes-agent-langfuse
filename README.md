@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/n8n-nodes-agent-langfuse)](https://www.npmjs.com/package/n8n-nodes-agent-langfuse)
 [![npm downloads](https://img.shields.io/npm/dm/n8n-nodes-agent-langfuse)](https://www.npmjs.com/package/n8n-nodes-agent-langfuse)
 [![license](https://img.shields.io/npm/l/n8n-nodes-agent-langfuse)](LICENSE)
+[![n8n forum](https://img.shields.io/badge/n8n%20forum-discussion-EA4B71)](https://community.n8n.io/t/jev-in-n8n-a-node-for-typesafes-decision-model-traced-in-langfuse/315249)
 
 Two n8n community nodes that bring **AI execution** and **[Langfuse](https://langfuse.com) observability** together, without extra nodes in your workflow.
 
